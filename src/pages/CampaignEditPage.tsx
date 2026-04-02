@@ -203,7 +203,7 @@ export function CampaignEditPage() {
         </div>
 
         {/* Preview panel */}
-        <div className="w-80 shrink-0 border-l border-border bg-muted flex flex-col">
+        <div className="hidden md:flex w-80 shrink-0 border-l border-border bg-muted flex-col">
           <div className="px-4 py-3 border-b border-border bg-card">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Live Preview</p>
             {previewLead && (

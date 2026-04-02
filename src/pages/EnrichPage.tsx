@@ -112,15 +112,15 @@ export function EnrichPage() {
         <h1 className="text-sm font-semibold text-foreground">Enrich Leads</h1>
       </div>
 
-      <div className="flex flex-1 min-h-0 overflow-hidden">
+      <div className="relative flex flex-col md:flex-row flex-1 min-h-0 overflow-hidden">
         {/* Left panel */}
-        <div className="w-64 shrink-0 border-r border-border bg-card flex flex-col p-4 gap-3">
+        <div className="md:w-64 md:shrink-0 border-b md:border-b-0 md:border-r border-border bg-card flex flex-col p-4 gap-3">
           <div>
             <label className="text-xs font-medium text-foreground block mb-1.5">
               Domains to enrich
             </label>
             <textarea
-              className="w-full h-40 text-xs rounded-md border border-input px-2.5 py-2 resize-none font-mono bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full h-32 md:h-40 text-xs rounded-md border border-input px-2.5 py-2 resize-none font-mono bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-blue-500"
               placeholder={"peakroofing.com\nsummitshield.com\nreliableroof.co"}
               value={textarea}
               onChange={o => setTextarea(o.target.value)}

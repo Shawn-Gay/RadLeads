@@ -70,7 +70,8 @@ export function LeadDetailPanel({ lead, onClose, className }: LeadDetailPanelPro
   return (
     <aside
       className={cn(
-        'w-80 shrink-0 border-l border-border bg-card flex flex-col overflow-hidden',
+        'fixed inset-0 z-50 flex flex-col bg-card overflow-hidden',
+        'md:absolute md:right-0 md:top-0 md:bottom-0 md:z-10 md:w-80 md:border-l md:border-border md:shadow-xl',
         className
       )}
     >

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link, Outlet, useRouterState } from "@tanstack/react-router"
 import { cn } from "@/lib/utils"
 import { useDarkMode } from "@/hooks/useDarkMode"
@@ -11,6 +12,8 @@ import {
   Server,
   Sun,
   Moon,
+  Menu,
+  X,
 } from "lucide-react"
 
 const navItems = [
@@ -26,14 +29,33 @@ export function Layout() {
   const routerState = useRouterState()
   const currentPath = routerState.location.pathname
   const { dark, toggle } = useDarkMode()
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
     <div className="flex h-screen bg-background">
+      {/* Mobile backdrop */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="w-52 shrink-0 bg-card border-r border-border flex flex-col">
+      <aside className={cn(
+        "fixed inset-y-0 left-0 z-50 w-52 bg-card border-r border-border flex flex-col transition-transform duration-200",
+        "md:relative md:translate-x-0 md:z-auto",
+        sidebarOpen ? "translate-x-0" : "-translate-x-full"
+      )}>
         <div className="h-12 flex items-center gap-2 px-5 border-b border-border">
-          <Zap className="h-4 w-4 text-blue-600" />
+          <Zap className="h-4 w-4 text-blue-600 shrink-0" />
           <span className="font-semibold text-sm tracking-tight text-foreground">RadLeads</span>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="ml-auto p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors md:hidden"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
 
         <nav className="flex-1 px-2 py-3 space-y-0.5">
@@ -45,6 +67,7 @@ export function Layout() {
               <Link
                 key={item.to}
                 to={item.to}
+                onClick={() => setSidebarOpen(false)}
                 className={cn(
                   "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                   active
@@ -73,6 +96,23 @@ export function Layout() {
 
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Mobile top bar */}
+        <div className="md:hidden h-12 bg-card border-b border-border flex items-center px-4 gap-3 shrink-0">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          >
+            <Menu className="h-4 w-4" />
+          </button>
+          <Zap className="h-4 w-4 text-blue-600" />
+          <span className="font-semibold text-sm tracking-tight text-foreground">RadLeads</span>
+          <button
+            onClick={toggle}
+            className="ml-auto p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          >
+            {dark ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+          </button>
+        </div>
         <Outlet />
       </div>
     </div>

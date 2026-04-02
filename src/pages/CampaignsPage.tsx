@@ -44,7 +44,7 @@ export function CampaignsPage() {
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6 bg-background">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-background">
         {campaigns.length === 0 ? (
           <div className="bg-card border border-border rounded-lg p-12 text-center">
             <p className="text-sm text-muted-foreground">No campaigns yet.</p>
@@ -88,7 +88,7 @@ function CampaignCard({ campaign: c, onClick }: { campaign: Campaign; onClick: (
         </div>
         <StatusBadge status={c.status} />
       </div>
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {stats.map(s => (
           <div key={s.label} className="text-center">
             <p className="text-lg font-bold text-foreground">{s.value}</p>

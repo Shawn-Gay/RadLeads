@@ -46,7 +46,7 @@ export function DashboardPage() {
   ]
 
   return (
-    <div className="flex-1 overflow-y-auto p-6 bg-background">
+    <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-background">
       {/* Page header */}
       <div className="mb-6">
         <h1 className="text-xl font-semibold text-foreground">Dashboard</h1>
@@ -54,7 +54,7 @@ export function DashboardPage() {
       </div>
 
       {/* Stats grid */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {stats.map((stat) => (
           <div key={stat.label} className="bg-card border border-border rounded-lg p-4">
             <div className="flex items-center justify-between mb-3">

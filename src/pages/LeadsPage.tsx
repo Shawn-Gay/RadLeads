@@ -148,7 +148,7 @@ export function LeadsPage() {
       </div>
 
       {/* Filter tabs */}
-      <div className="bg-card border-b border-border px-5 flex items-center gap-1 shrink-0">
+      <div className="bg-card border-b border-border px-5 flex items-center gap-1 shrink-0 overflow-x-auto">
         {TABS.map(tab => (
           <button
             key={tab.key}
@@ -169,9 +169,9 @@ export function LeadsPage() {
       </div>
 
       {/* Table + detail panel */}
-      <div className="flex flex-1 min-h-0 overflow-hidden">
+      <div className="relative flex flex-1 min-h-0 overflow-hidden">
         <div className="flex-1 overflow-auto">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[560px] text-sm">
             <thead className="bg-muted border-b border-border sticky top-0 z-10">
               {table.getHeaderGroups().map(hg => (
                 <tr key={hg.id}>

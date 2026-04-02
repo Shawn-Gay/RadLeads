@@ -36,12 +36,12 @@ export function AccountsPage() {
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-background">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 bg-background">
         {/* Add account form */}
         {showAddForm && (
           <div className="bg-card border border-border rounded-lg p-4">
             <h3 className="text-sm font-semibold text-foreground mb-3">Add Email Account</h3>
-            <div className="flex items-end gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-end gap-3">
               <div className="flex-1">
                 <label className="text-xs font-medium text-muted-foreground block mb-1">Email address</label>
                 <input
@@ -52,7 +52,7 @@ export function AccountsPage() {
                   onChange={o => setNewEmail(o.target.value)}
                 />
               </div>
-              <div className="w-28">
+              <div className="w-full sm:w-28">
                 <label className="text-xs font-medium text-muted-foreground block mb-1">Daily limit</label>
                 <input
                   type="number"
@@ -63,18 +63,20 @@ export function AccountsPage() {
                   onChange={o => setNewLimit(o.target.value)}
                 />
               </div>
-              <button
-                onClick={handleAddAccount}
-                className="text-xs text-white bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-md transition-colors"
-              >
-                Add
-              </button>
-              <button
-                onClick={() => setShowAddForm(false)}
-                className="text-xs text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-md border border-border hover:bg-muted transition-colors"
-              >
-                Cancel
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleAddAccount}
+                  className="flex-1 sm:flex-none text-xs text-white bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-md transition-colors"
+                >
+                  Add
+                </button>
+                <button
+                  onClick={() => setShowAddForm(false)}
+                  className="flex-1 sm:flex-none text-xs text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-md border border-border hover:bg-muted transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         )}

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Sparkles, Send } from 'lucide-react'
+import { ChevronLeft, Sparkles, Send } from 'lucide-react'
 import { useAppContext } from '@/context/AppContext'
 import { draftReply } from '@/services/ai'
 import { cn } from '@/lib/utils'
@@ -18,12 +18,14 @@ export function InboxPage() {
   const [drafting, setDrafting] = useState(false)
   const [sending, setSending] = useState(false)
   const [sentConfirm, setSentConfirm] = useState(false)
+  const [mobileView, setMobileView] = useState<'list' | 'thread'>('list')
 
   function handleSelect(msg: InboxMessage) {
     setSelected(msg)
     markRead(msg.id)
     setReplyText('')
     setSentConfirm(false)
+    setMobileView('thread')
   }
 
   async function handleAiDraft() {
@@ -64,7 +66,10 @@ export function InboxPage() {
 
       <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Message list */}
-        <div className="w-72 shrink-0 border-r border-border bg-card overflow-y-auto">
+        <div className={cn(
+          "border-r border-border bg-card overflow-y-auto md:w-72 md:shrink-0",
+          mobileView === 'thread' ? "hidden md:block" : "w-full"
+        )}>
           {inbox.length === 0 ? (
             <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
               No messages
@@ -102,11 +107,24 @@ export function InboxPage() {
 
         {/* Thread view */}
         {selected ? (
-          <div className="flex-1 flex flex-col overflow-hidden bg-background">
+          <div className={cn(
+            "flex-1 flex flex-col overflow-hidden bg-background",
+            mobileView === 'list' ? "hidden md:flex" : "flex"
+          )}>
             {/* Thread header */}
-            <div className="bg-card border-b border-border px-5 py-3 shrink-0">
-              <h2 className="text-sm font-semibold text-foreground">{selected.subject}</h2>
-              <p className="text-xs text-muted-foreground mt-0.5">{selected.name} · {selected.company}</p>
+            <div className="bg-card border-b border-border px-4 py-3 shrink-0">
+              <div className="flex items-start gap-2">
+                <button
+                  onClick={() => setMobileView('list')}
+                  className="md:hidden shrink-0 p-1 -ml-1 rounded text-muted-foreground hover:text-foreground transition-colors mt-0.5"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <div className="min-w-0">
+                  <h2 className="text-sm font-semibold text-foreground truncate">{selected.subject}</h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">{selected.name} · {selected.company}</p>
+                </div>
+              </div>
             </div>
 
             {/* Messages */}
@@ -119,7 +137,7 @@ export function InboxPage() {
                     className={cn('flex', ours ? 'justify-end' : 'justify-start')}
                   >
                     <div className={cn(
-                      'max-w-lg rounded-lg px-4 py-3 text-sm',
+                      'max-w-[85%] md:max-w-lg rounded-lg px-4 py-3 text-sm',
                       ours
                         ? 'bg-blue-600 text-white'
                         : 'bg-card border border-border text-foreground'
@@ -172,7 +190,10 @@ export function InboxPage() {
             </div>
           </div>
         ) : (
-          <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
+          <div className={cn(
+            "flex-1 items-center justify-center text-sm text-muted-foreground",
+            mobileView === 'list' ? "hidden md:flex" : "flex"
+          )}>
             Select a message to view the thread.
           </div>
         )}
