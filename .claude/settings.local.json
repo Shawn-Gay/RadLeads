@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm create:*)",
+      "Bash(printf '\\\\n')",
+      "Bash(npm install:*)",
+      "Bash(npm add:*)",
+      "Bash(npx shadcn@latest init --defaults)"
+    ]
+  }
+}
