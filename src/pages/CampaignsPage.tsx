@@ -5,7 +5,7 @@ import { StatusBadge } from '@/components/shared/StatusBadge'
 import type { Campaign } from '@/types'
 
 export function CampaignsPage() {
-  const { campaigns, addCampaign } = useAppContext()
+  const { campaigns, companies, addCampaign } = useAppContext()
   const navigate = useNavigate()
 
   function handleNewCampaign() {
@@ -52,13 +52,17 @@ export function CampaignsPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {campaigns.map(c => (
+            {campaigns.map(c => {
+              const leadsCount = companies.reduce((n, o) =>
+                n + o.people.filter(p => p.campaignIds.includes(c.id)).length, 0)
+              return (
               <CampaignCard
                 key={c.id}
-                campaign={c}
+                campaign={{ ...c, leads: leadsCount }}
                 onClick={() => navigate({ to: '/campaigns/$campaignId', params: { campaignId: String(c.id) } })}
               />
-            ))}
+              )
+            })}
           </div>
         )}
       </div>

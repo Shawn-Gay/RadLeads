@@ -1,10 +1,8 @@
-import type { Lead } from '@/types'
+// Enrichment service — server-side implementation pending.
+// Domain-based enrichment (scraping, email guessing, SMTP verification)
+// will be handled by the server. UI simulation is done in LeadsPage.
 
-const FIRST_NAMES = ['James', 'Sarah', 'Michael', 'Emily', 'David', 'Jessica', 'Robert', 'Ashley', 'William', 'Megan']
-const LAST_NAMES = ['Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis', 'Wilson', 'Moore', 'Taylor']
-const TITLES = ['Owner', 'CEO', 'General Manager', 'Operations Manager', 'Sales Director', 'President']
-const CITIES = ['Houston, TX', 'Phoenix, AZ', 'Philadelphia, PA', 'San Antonio, TX', 'San Diego, CA', 'Dallas, TX', 'Jacksonville, FL', 'Columbus, OH', 'Charlotte, NC', 'Indianapolis, IN']
-const EMPLOYEE_RANGES = ['1–10', '11–50', '51–200', '201–500']
+import { FIRST_NAMES, LAST_NAMES, TITLES, CITIES, EMPLOYEE_RANGES } from '@/data/enrichment'
 
 function seededInt(seed: string, min: number, max: number): number {
   let hash = 0

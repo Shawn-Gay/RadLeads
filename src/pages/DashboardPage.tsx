@@ -1,40 +1,38 @@
-import { Users, TrendingUp, MessageSquare, Server } from 'lucide-react'
+import { Users, Sparkles, Megaphone, Server } from 'lucide-react'
 import { Link } from '@tanstack/react-router'
 import { useAppContext } from '@/context/AppContext'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { cn } from '@/lib/utils'
 
 export function DashboardPage() {
-  const { leads, campaigns, accounts } = useAppContext()
+  const { companies, campaigns, accounts } = useAppContext()
 
-  const totalLeads = leads.length
-  const repliedLeads = leads.filter(o => o.status === 'replied' || o.status === 'hot').length
-  const contactedLeads = leads.filter(o => o.status === 'contacted' || o.status === 'replied' || o.status === 'hot').length
-  const openRate = contactedLeads > 0 ? Math.round((repliedLeads / contactedLeads) * 100) : 0
+  const totalPeople    = companies.reduce((n, o) => n + o.people.length, 0)
+  const enrichedCount  = companies.filter(o => o.enrichStatus === 'enriched').length
+  const inCampaignCount = companies.reduce((n, o) => n + o.people.filter(p => p.campaignIds.length > 0).length, 0)
   const activeAccounts = accounts.filter(o => o.status === 'active').length
-  const recentLeads = [...leads].sort((a, b) => b.id - a.id).slice(0, 5)
 
   const stats = [
     {
       label: 'Total Leads',
-      value: String(totalLeads),
+      value: String(totalPeople),
       icon: Users,
       color: 'text-blue-600',
       bg: 'bg-blue-50 dark:bg-blue-950',
     },
     {
-      label: 'Open Rate',
-      value: contactedLeads > 0 ? `${openRate}%` : '—',
-      icon: TrendingUp,
-      color: 'text-emerald-600',
-      bg: 'bg-emerald-50 dark:bg-emerald-950',
+      label: 'Enriched Companies',
+      value: `${enrichedCount} / ${companies.length}`,
+      icon: Sparkles,
+      color: 'text-violet-600',
+      bg: 'bg-violet-50 dark:bg-violet-950',
     },
     {
-      label: 'Replies',
-      value: String(repliedLeads),
-      icon: MessageSquare,
-      color: 'text-amber-600',
-      bg: 'bg-amber-50 dark:bg-amber-950',
+      label: 'In Campaign',
+      value: String(inCampaignCount),
+      icon: Megaphone,
+      color: 'text-emerald-600',
+      bg: 'bg-emerald-50 dark:bg-emerald-950',
     },
     {
       label: 'Active Accounts',
@@ -44,6 +42,15 @@ export function DashboardPage() {
       bg: 'bg-muted',
     },
   ]
+
+  // Recent companies: enriched first, then by name
+  const recentCompanies = [...companies]
+    .sort((a, b) => {
+      if (a.enrichStatus === 'enriched' && b.enrichStatus !== 'enriched') return -1
+      if (b.enrichStatus === 'enriched' && a.enrichStatus !== 'enriched') return 1
+      return 0
+    })
+    .slice(0, 5)
 
   return (
     <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-background">
@@ -55,7 +62,7 @@ export function DashboardPage() {
 
       {/* Stats grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        {stats.map((stat) => (
+        {stats.map(stat => (
           <div key={stat.label} className="bg-card border border-border rounded-lg p-4">
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-medium text-muted-foreground">{stat.label}</span>
@@ -70,7 +77,7 @@ export function DashboardPage() {
 
       {/* 2-col widgets */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-        {/* Active campaigns widget */}
+        {/* Active campaigns */}
         <div className="bg-card border border-border rounded-lg">
           <div className="px-4 py-3 border-b border-border flex items-center justify-between">
             <h2 className="text-sm font-semibold text-foreground">Campaigns</h2>
@@ -91,7 +98,7 @@ export function DashboardPage() {
           </div>
         </div>
 
-        {/* Email accounts widget */}
+        {/* Email accounts */}
         <div className="bg-card border border-border rounded-lg">
           <div className="px-4 py-3 border-b border-border flex items-center justify-between">
             <h2 className="text-sm font-semibold text-foreground">Email Accounts</h2>
@@ -116,25 +123,37 @@ export function DashboardPage() {
         </div>
       </div>
 
-      {/* Recent leads */}
+      {/* Recent companies */}
       <div className="bg-card border border-border rounded-lg">
         <div className="px-4 py-3 border-b border-border flex items-center justify-between">
           <h2 className="text-sm font-semibold text-foreground">Recent Leads</h2>
           <Link to="/leads" className="text-xs text-blue-600 hover:text-blue-700 dark:hover:text-blue-400">View all</Link>
         </div>
         <div className="divide-y divide-border">
-          {recentLeads.map(lead => (
-            <div key={lead.id} className="px-4 py-3 flex items-center gap-4">
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-foreground">{lead.firstName} {lead.lastName}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{lead.company} · {lead.email}</p>
+          {recentCompanies.length === 0 ? (
+            <p className="px-4 py-4 text-sm text-muted-foreground">No leads yet. Import a CSV to get started.</p>
+          ) : recentCompanies.map(company => {
+            const enrichCls = {
+              enriched:     'text-emerald-600',
+              not_enriched: 'text-muted-foreground',
+              pending:      'text-amber-600',
+              failed:       'text-red-600',
+            }[company.enrichStatus]
+
+            return (
+              <div key={company.id} className="px-4 py-3 flex items-center gap-4">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-foreground">{company.domain}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {company.name} · {company.people.length} {company.people.length === 1 ? 'person' : 'people'}
+                  </p>
+                </div>
+                <span className={cn('text-xs font-medium capitalize', enrichCls)}>
+                  {company.enrichStatus.replace('_', ' ')}
+                </span>
               </div>
-              <div className="flex items-center gap-3 shrink-0">
-                <span className="text-xs text-muted-foreground">{lead.lastTouched}</span>
-                <StatusBadge status={lead.status} />
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
     </div>

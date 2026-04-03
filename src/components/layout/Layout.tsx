@@ -7,7 +7,6 @@ import {
   Mail,
   Users,
   Zap,
-  Search,
   Inbox,
   Server,
   Sun,
@@ -20,7 +19,6 @@ const navItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { to: "/campaigns", label: "Campaigns", icon: Mail },
   { to: "/leads", label: "Leads", icon: Users },
-  { to: "/enrich", label: "Enrich", icon: Search },
   { to: "/inbox", label: "Inbox", icon: Inbox },
   { to: "/accounts", label: "Accounts", icon: Server },
 ]

@@ -1,10 +1,16 @@
-import type { Lead } from '@/types'
+export interface TokenData {
+  firstName?: string
+  lastName?: string
+  company?: string
+  city?: string
+  icebreaker?: string
+}
 
-export function fillTokens(template: string, lead: Partial<Lead>): string {
+export function fillTokens(template: string, data: TokenData): string {
   return template
-    .replace(/\{\{firstName\}\}/g, lead.firstName ?? '')
-    .replace(/\{\{lastName\}\}/g, lead.lastName ?? '')
-    .replace(/\{\{company\}\}/g, lead.company ?? '')
-    .replace(/\{\{city\}\}/g, lead.city ?? '')
-    .replace(/\{\{icebreaker\}\}/g, lead.icebreaker ?? '')
+    .replace(/\{\{firstName\}\}/g, data.firstName ?? '')
+    .replace(/\{\{lastName\}\}/g, data.lastName ?? '')
+    .replace(/\{\{company\}\}/g, data.company ?? '')
+    .replace(/\{\{city\}\}/g, data.city ?? '')
+    .replace(/\{\{icebreaker\}\}/g, data.icebreaker ?? '')
 }

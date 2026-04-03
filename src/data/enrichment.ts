@@ -1,0 +1,5 @@
+export const FIRST_NAMES = ['James', 'Sarah', 'Michael', 'Emily', 'David', 'Jessica', 'Robert', 'Ashley', 'William', 'Megan']
+export const LAST_NAMES = ['Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis', 'Wilson', 'Moore', 'Taylor']
+export const TITLES = ['Owner', 'CEO', 'General Manager', 'Operations Manager', 'Sales Director', 'President']
+export const CITIES = ['Houston, TX', 'Phoenix, AZ', 'Philadelphia, PA', 'San Antonio, TX', 'San Diego, CA', 'Dallas, TX', 'Jacksonville, FL', 'Columbus, OH', 'Charlotte, NC', 'Indianapolis, IN']
+export const EMPLOYEE_RANGES = ['1–10', '11–50', '51–200', '201–500']
