@@ -1,9 +1,9 @@
 import { cn } from '@/lib/utils'
 import { SOURCE_STYLES, SOURCE_LABELS, STATUS_STYLES } from './constants'
-import type { Person, Campaign } from '@/types'
+import type { LeadPerson, Campaign } from '@/types'
 
 interface PersonRowProps {
-  person: Person
+  person: LeadPerson
   campaigns: Campaign[]
   isSelected: boolean
   onSelect: () => void

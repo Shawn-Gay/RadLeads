@@ -33,10 +33,25 @@ function domainToCompanyName(domain: string): string {
   return words.join(' ') + (words.length === 1 ? ' Roofing' : '')
 }
 
+interface EnrichDomainResult {
+  company: string
+  domain: string
+  firstName: string
+  lastName: string
+  title: string
+  email: string
+  phone: string | null
+  city: string
+  employees: string
+  recentNews: string
+  painPoint: string
+  icebreaker: string
+}
+
 export async function enrichDomain(
   domain: string,
   signal?: AbortSignal
-): Promise<Omit<Lead, 'id' | 'status' | 'score' | 'lastTouched'>> {
+): Promise<EnrichDomainResult> {
   const delay = 800 + seededInt(domain, 0, 1200)
   await new Promise<void>((resolve, reject) => {
     const t = setTimeout(resolve, delay)

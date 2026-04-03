@@ -5,7 +5,6 @@ type AnyStatus = CampaignStatus | AccountStatus
 
 const STATUS_CLASSES: Record<AnyStatus, string> = {
   draft:   'bg-muted text-muted-foreground',
-  contacted: 'bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400',
   warming: 'bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400',
   active:  'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400',
   paused:  'bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-400',

@@ -138,9 +138,9 @@ function buildImportPeople(
         phone,
         city,
         linkedinUrl,
-      } satisfies ImportPersonInput
+      }
     })
-    .filter((p): p is ImportPersonInput => p !== null)
+    .filter(Boolean) as ImportPersonInput[]
 }
 
 export function ImportCSVDialog({ onClose, onImport }: ImportCSVDialogProps) {

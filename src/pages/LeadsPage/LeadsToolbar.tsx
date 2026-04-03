@@ -1,4 +1,3 @@
-import { useRef } from 'react'
 import { Download, Upload, Globe, Sparkles, Users, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Campaign } from '@/types'
@@ -14,7 +13,7 @@ interface LeadsToolbarProps {
   checkedEnrichedCount: number
   campaigns: Campaign[]
   showCampaignPicker: boolean
-  campaignPickerRef: React.RefObject<HTMLDivElement>
+  campaignPickerRef: React.RefObject<HTMLDivElement | null>
   onExport: () => void
   onImport: () => void
   onResearchSelected: () => void

@@ -135,8 +135,10 @@ export function DashboardPage() {
           ) : recentCompanies.map(company => {
             const enrichCls = {
               enriched:     'text-emerald-600',
+              enriching:    'text-violet-600',
+              researched:   'text-sky-600',
+              researching:  'text-amber-600',
               not_enriched: 'text-muted-foreground',
-              pending:      'text-amber-600',
               failed:       'text-red-600',
             }[company.enrichStatus]
 
