@@ -62,7 +62,7 @@ export function LeadsPage() {
             {/* Header row */}
             <div className={cn('sticky top-0 z-10 bg-muted border-b border-border grid px-3 py-2 items-center', COMPANY_GRID)}>
               <div />
-              <div>
+              <div className='grid items-center'>
                 <input
                   type="checkbox"
                   checked={state.allChecked}

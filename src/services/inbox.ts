@@ -1,6 +1,10 @@
+import { apiFetch } from '@/lib/api'
 import type { InboxMessage } from '@/types'
-import { INBOX0 } from '@/data/inbox'
 
 export function getInbox(): Promise<InboxMessage[]> {
-  return Promise.resolve(INBOX0)
+  return apiFetch<InboxMessage[]>('/api/inbox')
+}
+
+export function markMessageRead(id: string): Promise<void> {
+  return apiFetch<void>(`/api/inbox/${id}/read`, { method: 'PATCH' })
 }

@@ -53,12 +53,11 @@ export function DashboardPage() {
     .slice(0, 5)
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-background">
-      {/* Page header */}
-      <div className="mb-6">
-        <h1 className="text-xl font-semibold text-foreground">Dashboard</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">Overview of your cold email activity.</p>
+    <div className="flex flex-col h-full overflow-hidden">
+      <div className="bg-card border-b border-border h-12 flex items-center px-5 shrink-0">
+        <h1 className="text-sm font-semibold text-foreground">Dashboard</h1>
       </div>
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-background">
 
       {/* Stats grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -157,6 +156,7 @@ export function DashboardPage() {
             )
           })}
         </div>
+      </div>
       </div>
     </div>
   )

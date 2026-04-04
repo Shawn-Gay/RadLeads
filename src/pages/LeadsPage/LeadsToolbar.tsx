@@ -18,7 +18,7 @@ interface LeadsToolbarProps {
   onImport: () => void
   onResearchSelected: () => void
   onEnrichSelected: () => void
-  onAddToCampaign: (campaignId: number) => void
+  onAddToCampaign: (campaignId: string) => void
   onToggleCampaignPicker: () => void
 }
 
@@ -29,8 +29,7 @@ export function LeadsToolbar({
   onExport, onImport, onResearchSelected, onEnrichSelected, onAddToCampaign, onToggleCampaignPicker,
 }: LeadsToolbarProps) {
   return (
-    <div className="bg-card border-b border-border px-5 py-3 shrink-0">
-      <div className="flex items-center gap-3">
+    <div className="bg-card border-b border-border px-5 py-3 shrink-0 flex items-center gap-3">
         <div className="mr-auto">
           <h1 className="text-sm font-semibold text-foreground">Leads</h1>
           <p className="text-[11px] text-muted-foreground mt-0.5">
@@ -112,7 +111,6 @@ export function LeadsToolbar({
         >
           <Upload className="h-3.5 w-3.5" /> Import CSV
         </button>
-      </div>
     </div>
   )
 }

@@ -1,41 +1,66 @@
+import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { Plus, Users, Send, Eye, MessageSquare } from 'lucide-react'
+import { Plus, Search } from 'lucide-react'
 import { useAppContext } from '@/context/AppContext'
 import { StatusBadge } from '@/components/shared/StatusBadge'
-import type { Campaign } from '@/types'
+import { cn } from '@/lib/utils'
+import type { Campaign, CampaignStatus, EmailAccount } from '@/types'
+
+const GRID = 'grid grid-cols-[1fr_160px_80px_64px_64px_64px_64px]'
+
+type TabKey = 'all' | CampaignStatus
+
+const TABS: { key: TabKey; label: string }[] = [
+  { key: 'all',    label: 'All' },
+  { key: 'active', label: 'Active' },
+  { key: 'paused', label: 'Paused' },
+  { key: 'draft',  label: 'Draft' },
+]
 
 export function CampaignsPage() {
-  const { campaigns, companies, addCampaign } = useAppContext()
+  const { campaigns, companies, accounts, addCampaign } = useAppContext()
   const navigate = useNavigate()
+  const [activeTab, setActiveTab] = useState<TabKey>('all')
+  const [search, setSearch] = useState('')
 
-  function handleNewCampaign() {
-    const newCampaign: Omit<Campaign, 'id'> = {
-      name: 'Untitled Campaign',
-      status: 'draft',
-      fromEmail: '',
-      leads: 0,
-      sent: 0,
-      opens: 0,
-      replies: 0,
-      steps: [
-        {
-          id: 1,
-          day: 0,
-          subject: '',
-          body: '',
-        },
-      ],
-    }
-    addCampaign(newCampaign)
-    const nextId = campaigns.length > 0 ? Math.max(...campaigns.map(o => o.id)) + 1 : 1
-    navigate({ to: '/campaigns/$campaignId', params: { campaignId: String(nextId) } })
+  async function handleNewCampaign() {
+    const created = await addCampaign({
+      name:      'Untitled Campaign',
+      status:    'draft',
+      senderIds: [],
+      leads:     0,
+      sent:      0,
+      opens:     0,
+      replies:   0,
+      steps:     [{ id: crypto.randomUUID(), day: 0, subject: '', body: '' }],
+    })
+    navigate({ to: '/campaigns/$campaignId', params: { campaignId: created.id } })
   }
+
+  const tabCounts = Object.fromEntries(
+    TABS.map(t => [t.key, t.key === 'all' ? campaigns.length : campaigns.filter(o => o.status === t.key).length])
+  ) as Record<TabKey, number>
+
+  const filtered = campaigns.filter(o => {
+    if (activeTab !== 'all' && o.status !== activeTab) return false
+    if (search.trim()) {
+      const q = search.toLowerCase()
+      if (!o.name.toLowerCase().includes(q)) return false
+    }
+    return true
+  })
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Topbar */}
-      <div className="bg-card border-b border-border h-12 flex items-center px-5 gap-2 shrink-0">
-        <h1 className="text-sm font-semibold text-foreground mr-auto">Campaigns</h1>
+      <div className="bg-card border-b border-border px-5 py-3 shrink-0 flex items-center gap-3">
+        <div className="mr-auto">
+          <h1 className="text-sm font-semibold text-foreground">Campaigns</h1>
+          <p className="text-[11px] text-muted-foreground mt-0.5">
+            {campaigns.length} {campaigns.length === 1 ? 'campaign' : 'campaigns'} ·{' '}
+            {campaigns.filter(o => o.status === 'active').length} active
+          </p>
+        </div>
         <button
           onClick={handleNewCampaign}
           className="flex items-center gap-1.5 text-xs text-white bg-blue-600 hover:bg-blue-700 px-2.5 py-1.5 rounded-md transition-colors"
@@ -44,64 +69,120 @@ export function CampaignsPage() {
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-background">
-        {campaigns.length === 0 ? (
-          <div className="bg-card border border-border rounded-lg p-12 text-center">
+      {/* Tabs */}
+      <div className="bg-card border-b border-border px-5 flex items-center gap-1 shrink-0 overflow-x-auto">
+        {TABS.map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={cn(
+              'px-3 py-2 text-xs font-medium border-b-2 transition-colors whitespace-nowrap',
+              activeTab === tab.key
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            )}
+          >
+            {tab.label}
+            <span className="ml-1.5 text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full">
+              {tabCounts[tab.key]}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {/* Search */}
+      <div className="bg-card border-b border-border px-5 py-2 shrink-0">
+        <div className="relative max-w-sm">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Search campaigns…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full pl-8 pr-3 py-1.5 text-xs bg-muted border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-foreground placeholder:text-muted-foreground"
+          />
+        </div>
+      </div>
+
+      {campaigns.length === 0 ? (
+        <div className="flex-1 flex items-center justify-center bg-background">
+          <div className="text-center">
             <p className="text-sm text-muted-foreground">No campaigns yet.</p>
             <p className="text-xs text-muted-foreground mt-1">Create your first campaign to get started.</p>
           </div>
-        ) : (
-          <div className="space-y-3">
-            {campaigns.map(c => {
-              const leadsCount = companies.reduce((n, o) =>
-                n + o.people.filter(p => p.campaignIds.includes(c.id)).length, 0)
-              return (
-              <CampaignCard
-                key={c.id}
-                campaign={{ ...c, leads: leadsCount }}
-                onClick={() => navigate({ to: '/campaigns/$campaignId', params: { campaignId: String(c.id) } })}
-              />
-              )
-            })}
+        </div>
+      ) : (
+        <div className="flex-1 overflow-auto">
+          <div className="min-w-[700px]">
+            {/* Header row */}
+            <div className={cn('sticky top-0 z-10 bg-muted border-b border-border px-5 py-2 items-center', GRID)}>
+              <div className="text-xs font-medium text-muted-foreground">Name</div>
+              <div className="text-xs font-medium text-muted-foreground">Senders</div>
+              <div className="text-xs font-medium text-muted-foreground">Status</div>
+              <div className="text-xs font-medium text-muted-foreground text-right">Leads</div>
+              <div className="text-xs font-medium text-muted-foreground text-right">Sent</div>
+              <div className="text-xs font-medium text-muted-foreground text-right">Opens</div>
+              <div className="text-xs font-medium text-muted-foreground text-right">Replies</div>
+            </div>
+
+            {/* Rows */}
+            <div className="bg-card divide-y divide-border">
+              {filtered.length === 0 ? (
+                <div className="px-5 py-16 text-center">
+                  <p className="text-sm text-muted-foreground">No campaigns match your filter.</p>
+                  <button
+                    onClick={() => { setActiveTab('all'); setSearch('') }}
+                    className="mt-2 text-xs text-blue-600 hover:underline"
+                  >
+                    Clear filters
+                  </button>
+                </div>
+              ) : filtered.map(c => {
+                const leadsCount = companies.reduce((n, o) =>
+                  n + o.people.filter(p => p.campaignIds.includes(c.id)).length, 0)
+                return (
+                  <CampaignRow
+                    key={c.id}
+                    campaign={{ ...c, leads: leadsCount }}
+                    accounts={accounts}
+                    onClick={() => navigate({ to: '/campaigns/$campaignId', params: { campaignId: c.id } })}
+                  />
+                )
+              })}
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }
 
-function CampaignCard({ campaign: c, onClick }: { campaign: Campaign; onClick: () => void }) {
-  const stats = [
-    { label: 'Leads', value: c.leads, icon: Users },
-    { label: 'Sent', value: c.sent, icon: Send },
-    { label: 'Opens', value: c.opens, icon: Eye },
-    { label: 'Replies', value: c.replies, icon: MessageSquare },
-  ]
+function CampaignRow({ campaign: c, accounts, onClick }: { campaign: Campaign; accounts: EmailAccount[]; onClick: () => void }) {
+  const senders = accounts.filter(o => c.senderIds.includes(o.id))
 
   return (
-    <button
+    <div
       onClick={onClick}
-      className="w-full text-left bg-card border border-border rounded-lg px-5 py-4 hover:border-blue-200 dark:hover:border-blue-800 hover:bg-blue-50/30 dark:hover:bg-blue-950/30 transition-colors"
+      className={cn('px-5 py-3 items-center cursor-pointer hover:bg-muted/40 transition-colors', GRID)}
     >
-      <div className="flex items-start justify-between gap-4 mb-3">
-        <div className="min-w-0">
-          <h3 className="font-semibold text-foreground text-sm truncate">{c.name}</h3>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            From: {c.fromEmail || <span className="italic">no sender set</span>} · {c.steps.length} step{c.steps.length !== 1 ? 's' : ''}
-          </p>
-        </div>
-        <StatusBadge status={c.status} />
+      <div className="min-w-0 pr-4">
+        <p className="text-sm font-medium text-foreground truncate">{c.name}</p>
+        <p className="text-[11px] text-muted-foreground mt-0.5">{c.steps.length} step{c.steps.length !== 1 ? 's' : ''}</p>
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {stats.map(s => (
-          <div key={s.label} className="text-center">
-            <p className="text-lg font-bold text-foreground">{s.value}</p>
-            <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-1">
-              <s.icon className="h-2.5 w-2.5" /> {s.label}
-            </p>
-          </div>
-        ))}
+      <div className="min-w-0 pr-4">
+        {senders.length === 0 ? (
+          <span className="text-xs text-muted-foreground italic">no senders</span>
+        ) : senders.length === 1 ? (
+          <p className="text-xs text-muted-foreground truncate">{senders[0].email}</p>
+        ) : (
+          <p className="text-xs text-muted-foreground truncate">{senders.length} inboxes</p>
+        )}
       </div>
-    </button>
+      <div><StatusBadge status={c.status} /></div>
+      <div className="text-xs text-foreground text-right">{c.leads}</div>
+      <div className="text-xs text-foreground text-right">{c.sent}</div>
+      <div className="text-xs text-foreground text-right">{c.opens}</div>
+      <div className="text-xs text-foreground text-right">{c.replies}</div>
+    </div>
   )
 }

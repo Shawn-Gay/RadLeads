@@ -1,91 +1,58 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
-import type { Company, LeadPerson, Campaign, EmailAccount, WarmupActivity, WarmupBatch, InboxMessage, ImportPersonInput, AccountProvider } from '@/types'
-import { getLeads } from '@/services/leads'
-import { getCampaigns } from '@/services/campaigns'
-import { getAccounts, getWarmupActivities, getWarmupBatches } from '@/services/accounts'
-import { getInbox } from '@/services/inbox'
+import type { Company, LeadPerson, Campaign, EmailAccount, WarmupActivity, InboxMessage, ImportPersonInput } from '@/types'
+import { getLeads, importPeople, queueResearch, queueEnrich } from '@/services/leads'
+import { getCampaigns, createCampaign, saveCampaign, enrollPeople, unenrollPerson } from '@/services/campaigns'
+import { getAccounts, getWarmupActivities, patchAccountStatus, deleteAccount } from '@/services/accounts'
+import { getInbox, markMessageRead } from '@/services/inbox'
 
 interface AppContextValue {
   companies: Company[]
-  addFromImport: (people: ImportPersonInput[]) => void
+  setCompanies: React.Dispatch<React.SetStateAction<Company[]>>
+  addFromImport: (people: ImportPersonInput[]) => Promise<void>
   updateCompany: (id: string, partial: Partial<Omit<Company, 'people' | 'id'>>) => void
   updatePerson: (companyId: string, personId: string, partial: Partial<Omit<LeadPerson, 'id'>>) => void
-  addPersonToCampaign: (personId: string, campaignId: number) => void
-  removePersonFromCampaign: (personId: string, campaignId: number) => void
+  queueResearchCompanies: (ids: string[]) => Promise<void>
+  queueEnrichCompanies: (ids: string[]) => Promise<void>
+  enrollPeopleInCampaign: (personIds: string[], campaignId: string) => void
+  removePersonFromCampaign: (personId: string, campaignId: string) => void
   campaigns: Campaign[]
-  addCampaign: (c: Omit<Campaign, 'id'>) => void
+  addCampaign: (c: Omit<Campaign, 'id'>) => Promise<Campaign>
   updateCampaign: (c: Campaign) => void
   accounts: EmailAccount[]
-  addAccount: (email: string, provider: AccountProvider, dailyLimit: number) => void
-  updateAccount: (id: number, partial: Partial<EmailAccount>) => void
+  addAccount: (account: EmailAccount) => void
+  toggleAccountStatus: (account: EmailAccount) => Promise<void>
+  removeAccount: (id: string) => Promise<void>
   warmupActivities: WarmupActivity[]
-  warmupBatches: WarmupBatch[]
-  saveBatch: (batchId: string | null, name: string, accountIds: number[]) => void
-  deleteBatch: (batchId: string) => void
   inbox: InboxMessage[]
-  markRead: (id: number) => void
+  markRead: (id: string) => void
 }
 
 const AppContext = createContext<AppContextValue | null>(null)
 
-let companyCounter = 100
-let personCounter = 100
-
 export function AppContextProvider({ children }: { children: ReactNode }) {
-  const [companies, setCompanies] = useState<Company[]>([])
-  const [campaigns, setCampaigns] = useState<Campaign[]>([])
-  const [accounts, setAccounts] = useState<EmailAccount[]>([])
+  const [companies, setCompanies]           = useState<Company[]>([])
+  const [campaigns, setCampaigns]           = useState<Campaign[]>([])
+  const [accounts, setAccounts]             = useState<EmailAccount[]>([])
   const [warmupActivities, setWarmupActivities] = useState<WarmupActivity[]>([])
-  const [warmupBatches, setWarmupBatches] = useState<WarmupBatch[]>([])
-  const [inbox, setInbox] = useState<InboxMessage[]>([])
+  const [inbox, setInbox]                   = useState<InboxMessage[]>([])
 
   useEffect(() => {
     getLeads().then(setCompanies)
     getCampaigns().then(setCampaigns)
     getAccounts().then(setAccounts)
     getWarmupActivities().then(setWarmupActivities)
-    getWarmupBatches().then(setWarmupBatches)
     getInbox().then(setInbox)
   }, [])
 
-  // Smart merge: groups by domain, deduplicates by email address
-  function addFromImport(people: ImportPersonInput[]) {
+  async function addFromImport(people: ImportPersonInput[]): Promise<void> {
+    const updated = await importPeople(people)
     setCompanies(prev => {
-      // Shallow-clone so we can safely mutate people arrays
-      const next = prev.map(o => ({ ...o, people: [...o.people] }))
-
-      for (const input of people) {
-        const domain = input.domain.toLowerCase().trim()
-        let company = next.find(o => o.domain === domain)
-        if (!company) {
-          company = {
-            id: `c${++companyCounter}`,
-            domain,
-            name: input.companyName || domain,
-            enrichStatus: 'not_enriched',
-            people: [],
-          }
-          next.push(company)
-        }
-
-        const emailExists = company.people.some(p =>
-          p.emails.some(e => e.address.toLowerCase() === input.email.toLowerCase())
-        )
-        if (!emailExists) {
-          company.people.push({
-            id: `p${++personCounter}`,
-            firstName: input.firstName,
-            lastName: input.lastName,
-            title: input.title ?? '',
-            phone: input.phone ?? null,
-            city: input.city,
-            linkedinUrl: input.linkedinUrl,
-            emails: [{ address: input.email, source: 'csv', isPrimary: true, status: 'unknown' }],
-            campaignIds: [],
-          })
-        }
+      const next = [...prev]
+      for (const incoming of updated) {
+        const idx = next.findIndex(o => o.id === incoming.id)
+        if (idx >= 0) next[idx] = incoming
+        else next.push(incoming)
       }
-
       return next
     })
   }
@@ -101,17 +68,40 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
     }))
   }
 
-  function addPersonToCampaign(personId: string, campaignId: number) {
+  async function queueResearchCompanies(ids: string[]): Promise<void> {
+    // Optimistic update
+    setCompanies(prev => prev.map(o =>
+      ids.includes(o.id) && o.enrichStatus === 'not_enriched'
+        ? { ...o, enrichStatus: 'researching' }
+        : o
+    ))
+    await queueResearch(ids)
+  }
+
+  async function queueEnrichCompanies(ids: string[]): Promise<void> {
+    // Optimistic update
+    setCompanies(prev => prev.map(o =>
+      ids.includes(o.id) && o.enrichStatus === 'researched'
+        ? { ...o, enrichStatus: 'enriching' }
+        : o
+    ))
+    await queueEnrich(ids)
+  }
+
+  function enrollPeopleInCampaign(personIds: string[], campaignId: string) {
+    // Optimistic update
     setCompanies(prev => prev.map(o => ({
       ...o,
       people: o.people.map(p => {
-        if (p.id !== personId || p.campaignIds.includes(campaignId)) return p
+        if (!personIds.includes(p.id) || p.campaignIds.includes(campaignId)) return p
         return { ...p, campaignIds: [...p.campaignIds, campaignId] }
       }),
     })))
+    enrollPeople(campaignId, personIds).catch(err => console.error('Enroll failed:', err))
   }
 
-  function removePersonFromCampaign(personId: string, campaignId: number) {
+  function removePersonFromCampaign(personId: string, campaignId: string) {
+    // Optimistic update
     setCompanies(prev => prev.map(o => ({
       ...o,
       people: o.people.map(p => {
@@ -119,75 +109,49 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
         return { ...p, campaignIds: p.campaignIds.filter(id => id !== campaignId) }
       }),
     })))
+    unenrollPerson(campaignId, personId).catch(err => console.error('Unenroll failed:', err))
   }
 
-  function addCampaign(c: Omit<Campaign, 'id'>) {
-    setCampaigns(prev => {
-      const nextId = prev.length > 0 ? Math.max(...prev.map(o => o.id)) + 1 : 1
-      return [...prev, { ...c, id: nextId }]
-    })
+  async function addCampaign(c: Omit<Campaign, 'id'>): Promise<Campaign> {
+    const created = await createCampaign(c)
+    setCampaigns(prev => [...prev, created])
+    return created
   }
 
   function updateCampaign(c: Campaign) {
     setCampaigns(prev => prev.map(o => o.id === c.id ? c : o))
+    saveCampaign(c).catch(err => console.error('Campaign save failed:', err))
   }
 
-  function addAccount(email: string, provider: AccountProvider, dailyLimit: number) {
-    setAccounts(prev => {
-      const nextId = prev.length > 0 ? Math.max(...prev.map(o => o.id)) + 1 : 1
-      return [...prev, {
-        id: nextId,
-        email,
-        provider,
-        status: 'warming',
-        health: null,
-        sentToday: 0,
-        dailyLimit,
-        warmupDay: 1,
-        warmupTotalDays: 30,
-        warmupBatchId: null,
-      }]
-    })
+  function addAccount(account: EmailAccount) {
+    setAccounts(prev => [...prev, account])
   }
 
-  function updateAccount(id: number, partial: Partial<EmailAccount>) {
-    setAccounts(prev => prev.map(o => o.id === id ? { ...o, ...partial } : o))
+  async function toggleAccountStatus(account: EmailAccount) {
+    const next = account.status === 'paused' ? 'active' : 'paused'
+    const updated = await patchAccountStatus(account.id, next)
+    setAccounts(prev => prev.map(o => o.id === account.id ? updated : o))
   }
 
-  function saveBatch(batchId: string | null, name: string, accountIds: number[]) {
-    const id = batchId ?? `batch-${Date.now()}`
-    setWarmupBatches(prev => {
-      const exists = prev.some(o => o.id === id)
-      if (exists) return prev.map(o => o.id === id ? { ...o, name } : o)
-      return [...prev, { id, name, createdAt: new Date().toISOString() }]
-    })
-    setAccounts(prev => prev.map(o => {
-      const inBatch = accountIds.includes(o.id)
-      if (inBatch) return { ...o, warmupBatchId: id }
-      if (o.warmupBatchId === id) return { ...o, warmupBatchId: null }
-      return o
-    }))
+  async function removeAccount(id: string) {
+    await deleteAccount(id)
+    setAccounts(prev => prev.filter(o => o.id !== id))
   }
 
-  function deleteBatch(batchId: string) {
-    setWarmupBatches(prev => prev.filter(o => o.id !== batchId))
-    setAccounts(prev => prev.map(o =>
-      o.warmupBatchId === batchId ? { ...o, warmupBatchId: null } : o
-    ))
-  }
-
-  function markRead(id: number) {
+  function markRead(id: string) {
     setInbox(prev => prev.map(o => o.id === id ? { ...o, read: true } : o))
+    markMessageRead(id)
   }
 
   return (
     <AppContext.Provider value={{
-      companies, addFromImport, updateCompany, updatePerson,
-      addPersonToCampaign, removePersonFromCampaign,
+      companies, setCompanies, addFromImport,
+      updateCompany, updatePerson,
+      queueResearchCompanies, queueEnrichCompanies,
+      enrollPeopleInCampaign, removePersonFromCampaign,
       campaigns, addCampaign, updateCampaign,
-      accounts, addAccount, updateAccount,
+      accounts, addAccount, toggleAccountStatus, removeAccount,
       warmupActivities,
-      warmupBatches, saveBatch, deleteBatch,
       inbox, markRead,
     }}>
       {children}

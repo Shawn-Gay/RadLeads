@@ -1,14 +1,15 @@
 import { useState } from 'react'
-import { X, CheckCircle2, Loader2, Mail, Globe } from 'lucide-react'
+import { X, CheckCircle2, Loader2, AlertCircle, Mail, Globe } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { AccountProvider } from '@/types'
+import type { AccountProvider, EmailAccount } from '@/types'
+import { testConnection, createAccount } from '@/services/accounts'
 import { PROVIDERS, PROVIDER_DEFAULTS } from './providerConfig'
 
 type ModalStep = 'select' | 'credentials' | 'testing' | 'success'
 
 interface ConnectModalProps {
   onClose: () => void
-  onConnected: (email: string, provider: AccountProvider, dailyLimit: number) => void
+  onConnected: (account: EmailAccount) => void
 }
 
 export function ConnectModal({ onClose, onConnected }: ConnectModalProps) {
@@ -21,6 +22,8 @@ export function ConnectModal({ onClose, onConnected }: ConnectModalProps) {
   const [imapHost, setImapHost] = useState('')
   const [imapPort, setImapPort] = useState('993')
   const [dailyLimit, setDailyLimit] = useState('40')
+  const [error, setError] = useState<string | null>(null)
+  const [createdAccount, setCreatedAccount] = useState<EmailAccount | null>(null)
 
   function selectProvider(p: AccountProvider) {
     setProvider(p)
@@ -34,13 +37,30 @@ export function ConnectModal({ onClose, onConnected }: ConnectModalProps) {
 
   async function handleTestConnection() {
     if (!email.trim() || !password.trim()) return
+    setError(null)
     setStep('testing')
-    await new Promise(r => setTimeout(r, 2200))
-    setStep('success')
+    try {
+      await testConnection({
+        email: email.trim(), password,
+        smtpHost, smtpPort: Number(smtpPort),
+        imapHost, imapPort: Number(imapPort),
+      })
+      const account = await createAccount({
+        email: email.trim(), password, provider: provider!,
+        dailyLimit: Number(dailyLimit) || 40,
+        smtpHost, smtpPort: Number(smtpPort),
+        imapHost, imapPort: Number(imapPort),
+      })
+      setCreatedAccount(account)
+      setStep('success')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Connection failed')
+      setStep('credentials')
+    }
   }
 
   function handleDone() {
-    onConnected(email.trim(), provider!, Number(dailyLimit) || 40)
+    if (createdAccount) onConnected(createdAccount)
     onClose()
   }
 
@@ -96,6 +116,12 @@ export function ConnectModal({ onClose, onConnected }: ConnectModalProps) {
 
           {step === 'credentials' && provider !== 'google' && (
             <div className="space-y-3">
+              {error && (
+                <div className="flex items-start gap-2 text-xs text-red-600 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-md px-3 py-2">
+                  <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                  <span>{error}</span>
+                </div>
+              )}
               <div>
                 <label className="text-xs font-medium text-muted-foreground block mb-1">Email address</label>
                 <input

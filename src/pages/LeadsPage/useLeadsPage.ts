@@ -4,7 +4,12 @@ import type { Company } from '@/types'
 import type { TabKey } from './constants'
 
 export function useLeadsPage() {
-  const { companies, campaigns, updateCompany, addFromImport, addPersonToCampaign } = useAppContext()
+  const {
+    companies, campaigns,
+    updateCompany, addFromImport,
+    queueResearchCompanies, queueEnrichCompanies,
+    enrollPeopleInCampaign,
+  } = useAppContext()
 
   const [expandedIds, setExpandedIds]               = useState<Set<string>>(new Set())
   const [checkedIds, setCheckedIds]                 = useState<Set<string>>(new Set())
@@ -102,33 +107,27 @@ export function useLeadsPage() {
   }
 
   function handleResearch(companyId: string) {
-    updateCompany(companyId, { enrichStatus: 'researching' })
-    setTimeout(() => {
-      updateCompany(companyId, {
-        enrichStatus: 'researched',
-        researchedAt: new Date().toISOString().slice(0, 10),
-        summary: 'Business description and industry context collected from company website.',
-        recentNews: 'Recent news and notable activity discovered during website research.',
-      })
-    }, 2200)
+    queueResearchCompanies([companyId]).catch(err => {
+      // Roll back optimistic update on failure
+      updateCompany(companyId, { enrichStatus: 'not_enriched' })
+      console.error('Research queue failed:', err)
+    })
   }
 
   function handleEnrich(companyId: string) {
-    updateCompany(companyId, { enrichStatus: 'enriching' })
-    setTimeout(() => {
-      updateCompany(companyId, {
-        enrichStatus: 'enriched',
-        enrichedAt: new Date().toISOString().slice(0, 10),
-        genericEmails: ['info@domain.com', 'sales@domain.com'],
-      })
-    }, 2200)
+    queueEnrichCompanies([companyId]).catch(err => {
+      updateCompany(companyId, { enrichStatus: 'researched' })
+      console.error('Enrich queue failed:', err)
+    })
   }
 
   function handleResearchSelected() {
     const toResearch = [...checkedIds].filter(id =>
       companies.find(o => o.id === id)?.enrichStatus === 'not_enriched'
     )
-    toResearch.forEach(handleResearch)
+    if (toResearch.length > 0) {
+      queueResearchCompanies(toResearch).catch(err => console.error('Bulk research failed:', err))
+    }
     setCheckedIds(new Set())
   }
 
@@ -136,17 +135,20 @@ export function useLeadsPage() {
     const toEnrich = [...checkedIds].filter(id =>
       companies.find(o => o.id === id)?.enrichStatus === 'researched'
     )
-    toEnrich.forEach(handleEnrich)
+    if (toEnrich.length > 0) {
+      queueEnrichCompanies(toEnrich).catch(err => console.error('Bulk enrich failed:', err))
+    }
     setCheckedIds(new Set())
   }
 
-  function handleAddToCampaign(campaignId: number) {
-    const enrichedCompanies = [...checkedIds]
+  function handleAddToCampaign(campaignId: string) {
+    const personIds = [...checkedIds]
       .map(id => companies.find(o => o.id === id))
-      .filter(o => o?.enrichStatus === 'enriched') as Company[]
-    enrichedCompanies.forEach(company =>
-      company.people.forEach(p => addPersonToCampaign(p.id, campaignId))
-    )
+      .filter((o): o is Company => o?.enrichStatus === 'enriched')
+      .flatMap(o => o.people.map(p => p.id))
+    if (personIds.length > 0) {
+      enrollPeopleInCampaign(personIds, campaignId)
+    }
     setShowCampaignPicker(false)
     setCheckedIds(new Set())
   }

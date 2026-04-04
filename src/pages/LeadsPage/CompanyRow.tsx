@@ -43,7 +43,7 @@ export function CompanyRow({
         </button>
 
         {/* Checkbox */}
-        <div>
+        <div className='grid items-center'>
           <input
             type="checkbox"
             checked={isChecked}
