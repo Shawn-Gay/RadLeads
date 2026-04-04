@@ -8,6 +8,7 @@ export const ACTION_META: Record<WarmupActionType, { icon: React.ReactNode; labe
   marked_read:     { icon: <BookOpen className="h-3 w-3" />,       label: 'Marked Read', color: 'text-slate-500' },
   starred:         { icon: <Star className="h-3 w-3" />,           label: 'Starred',     color: 'text-amber-500' },
   replied:         { icon: <MessageSquare className="h-3 w-3" />,  label: 'Replied',     color: 'text-violet-500' },
+  reacted:         { icon: <Star className="h-3 w-3" />,           label: 'Reacted',     color: 'text-pink-500' },
 }
 
 function formatRelativeTime(ts: string): string {

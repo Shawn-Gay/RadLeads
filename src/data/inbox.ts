@@ -2,7 +2,7 @@ import type { InboxMessage } from '@/types'
 
 export const INBOX0: InboxMessage[] = [
   {
-    id: 1,
+    id: '1',
     from: 'marcus@peakroofing.com',
     name: 'Marcus Chen',
     company: 'Peak Roofing Solutions',
@@ -24,7 +24,7 @@ export const INBOX0: InboxMessage[] = [
     ],
   },
   {
-    id: 2,
+    id: '2',
     from: 'b.torres@summitshield.com',
     name: 'Brianna Torres',
     company: 'Summit Shield Roofing',
