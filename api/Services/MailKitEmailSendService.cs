@@ -22,8 +22,8 @@ public class MailKitEmailSendService(IConfiguration config) : IEmailSendService
         using var smtp = new SmtpClient();
         await smtp.ConnectAsync(
             config["Brevo:SmtpHost"] ?? "smtp-relay.brevo.com",
-            config.GetValue<int>("Brevo:SmtpPort", 587),
-            SecureSocketOptions.StartTls);
+            config.GetValue<int>("Brevo:SmtpPort", 465),
+            SecureSocketOptions.SslOnConnect);
         await smtp.AuthenticateAsync(config["Brevo:Login"], config["Brevo:ApiKey"]);
         await smtp.SendAsync(message);
         await smtp.DisconnectAsync(true);

@@ -137,7 +137,7 @@ public class EmailAccountsController(
         {
             using var smtp = new SmtpClient();
             smtp.Timeout = 15_000; // 15 s — fail fast on the server
-            await smtp.ConnectAsync(host, port, SecureSocketOptions.StartTls);
+            await smtp.ConnectAsync(host, port, SecureSocketOptions.SslOnConnect);
             await smtp.AuthenticateAsync(login, key);
             await smtp.DisconnectAsync(true);
 

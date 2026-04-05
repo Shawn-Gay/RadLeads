@@ -270,8 +270,8 @@ public class WarmupService(EncryptionService encryption, IConfiguration config, 
         using var smtp = new SmtpClient();
         await smtp.ConnectAsync(
             config["Brevo:SmtpHost"] ?? "smtp-relay.brevo.com",
-            config.GetValue<int>("Brevo:SmtpPort", 587),
-            SecureSocketOptions.StartTls, ct);
+            config.GetValue<int>("Brevo:SmtpPort", 465),
+            SecureSocketOptions.SslOnConnect, ct);
         await smtp.AuthenticateAsync(config["Brevo:Login"], config["Brevo:ApiKey"], ct);
         await smtp.SendAsync(reply, ct);
         await smtp.DisconnectAsync(true, ct);
