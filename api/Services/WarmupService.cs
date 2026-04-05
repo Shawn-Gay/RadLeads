@@ -10,7 +10,7 @@ using RadLeads.Api.Models;
 
 namespace RadLeads.Api.Services;
 
-public class WarmupService(EncryptionService encryption, ILogger<WarmupService> logger) : IWarmupService
+public class WarmupService(EncryptionService encryption, IConfiguration config, ILogger<WarmupService> logger) : IWarmupService
 {
     public const string SubjectPrefix = "[Warmup] ";
 
@@ -267,10 +267,12 @@ public class WarmupService(EncryptionService encryption, ILogger<WarmupService> 
         var text = bodyOverride ?? ReplyBodies[Random.Shared.Next(ReplyBodies.Length)];
         reply.Body = new TextPart("plain") { Text = text };
 
-        var socketOptions = from.SmtpPort == 465 ? SecureSocketOptions.SslOnConnect : SecureSocketOptions.StartTls;
         using var smtp = new SmtpClient();
-        await smtp.ConnectAsync(from.SmtpHost, from.SmtpPort, socketOptions, ct);
-        await smtp.AuthenticateAsync(from.Email, password, ct);
+        await smtp.ConnectAsync(
+            config["Brevo:SmtpHost"] ?? "smtp-relay.brevo.com",
+            config.GetValue<int>("Brevo:SmtpPort", 587),
+            SecureSocketOptions.StartTls, ct);
+        await smtp.AuthenticateAsync(config["Brevo:Login"], config["Brevo:ApiKey"], ct);
         await smtp.SendAsync(reply, ct);
         await smtp.DisconnectAsync(true, ct);
     }

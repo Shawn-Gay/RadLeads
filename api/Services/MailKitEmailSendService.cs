@@ -5,7 +5,7 @@ using RadLeads.Api.Models;
 
 namespace RadLeads.Api.Services;
 
-public class MailKitEmailSendService : IEmailSendService
+public class MailKitEmailSendService(IConfiguration config) : IEmailSendService
 {
     public async Task<string> SendAsync(OutboundEmail email, EmailAccount account, string plainPassword)
     {
@@ -20,14 +20,11 @@ public class MailKitEmailSendService : IEmailSendService
         }.ToMessageBody();
 
         using var smtp = new SmtpClient();
-
-        // Port 465 = implicit SSL, anything else = STARTTLS
-        var socketOptions = account.SmtpPort == 465
-            ? SecureSocketOptions.SslOnConnect
-            : SecureSocketOptions.StartTls;
-
-        await smtp.ConnectAsync(account.SmtpHost, account.SmtpPort, socketOptions);
-        await smtp.AuthenticateAsync(account.Email, plainPassword);
+        await smtp.ConnectAsync(
+            config["Brevo:SmtpHost"] ?? "smtp-relay.brevo.com",
+            config.GetValue<int>("Brevo:SmtpPort", 587),
+            SecureSocketOptions.StartTls);
+        await smtp.AuthenticateAsync(config["Brevo:Login"], config["Brevo:ApiKey"]);
         await smtp.SendAsync(message);
         await smtp.DisconnectAsync(true);
 
