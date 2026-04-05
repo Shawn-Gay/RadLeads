@@ -34,7 +34,7 @@ builder.Services.AddQuartz(q =>
         .ForJob("EmailDispatchJob")
         .WithIdentity("EmailDispatchTrigger")
         .WithSimpleSchedule(s => s
-            .WithIntervalInMinutes(5)
+            .WithIntervalInMinutes(1)
             .RepeatForever()
             .WithMisfireHandlingInstructionNextWithRemainingCount()));
 
