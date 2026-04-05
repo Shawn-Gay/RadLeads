@@ -1,5 +1,3 @@
-using MailKit.Net.Smtp;
-using MailKit.Security;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RadLeads.Api.Data;
@@ -124,34 +122,22 @@ public class EmailAccountsController(
     }
 
     // Diagnostic: POST /api/email-accounts/test-brevo-smtp
-    // Attempts a real connection + auth to the configured Brevo relay and returns the result.
+    // Pings the Brevo HTTP API to verify the api-key is valid and reachable.
     [HttpPost("test-brevo-smtp")]
-    public async Task<IActionResult> TestBrevoSmtp()
+    public async Task<IActionResult> TestBrevoSmtp([FromServices] IHttpClientFactory http)
     {
-        var host  = config["Brevo:SmtpHost"] ?? "smtp-relay.brevo.com";
-        var port  = config.GetValue<int>("Brevo:SmtpPort", 587);
-        var login = config["Brevo:Login"];
-        var key   = config["Brevo:ApiKey"];
-
+        var keyPresent = !string.IsNullOrEmpty(config["Brevo:HttpApiKey"]);
         try
         {
-            using var smtp = new SmtpClient();
-            smtp.Timeout = 15_000; // 15 s — fail fast on the server
-            await smtp.ConnectAsync(host, port, SecureSocketOptions.SslOnConnect);
-            await smtp.AuthenticateAsync(login, key);
-            await smtp.DisconnectAsync(true);
+            var client   = http.CreateClient("brevo");
+            var response = await client.GetAsync("v3/account");
+            var body     = await response.Content.ReadAsStringAsync();
 
-            return Ok(new { success = true, host, port, login });
+            return Ok(new { success = response.IsSuccessStatusCode, status = (int)response.StatusCode, keyPresent, body });
         }
         catch (Exception ex)
         {
-            return Ok(new
-            {
-                success = false,
-                host, port, login,
-                error   = ex.Message,
-                type    = ex.GetType().Name,
-            });
+            return Ok(new { success = false, keyPresent, error = ex.Message, type = ex.GetType().Name });
         }
     }
 }

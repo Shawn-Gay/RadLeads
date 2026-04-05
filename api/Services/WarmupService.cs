@@ -1,6 +1,5 @@
 using MailKit;
 using MailKit.Net.Imap;
-using MailKit.Net.Smtp;
 using MailKit.Search;
 using MailKit.Security;
 using Microsoft.EntityFrameworkCore;
@@ -10,7 +9,7 @@ using RadLeads.Api.Models;
 
 namespace RadLeads.Api.Services;
 
-public class WarmupService(EncryptionService encryption, IConfiguration config, ILogger<WarmupService> logger) : IWarmupService
+public class WarmupService(EncryptionService encryption, BrevoEmailSendService brevo, ILogger<WarmupService> logger) : IWarmupService
 {
     public const string SubjectPrefix = "[Warmup] ";
 
@@ -217,7 +216,7 @@ public class WarmupService(EncryptionService encryption, IConfiguration config, 
                         var body = action == WarmupAction.Reacted
                             ? Emojis[Random.Shared.Next(Emojis.Length)]
                             : null;
-                        await SendReplyAsync(account, original, partnerEmail, password, body, ct);
+                        await SendReplyAsync(account, original, partnerEmail, body, ct);
                         await imap.Inbox.AddFlagsAsync(uid, MessageFlags.Answered, true, ct);
                         db.WarmupActivities.Add(new WarmupActivity
                         {
@@ -248,33 +247,20 @@ public class WarmupService(EncryptionService encryption, IConfiguration config, 
     ];
 
     private async Task SendReplyAsync(
-        EmailAccount from, MimeMessage original, string toAddress, string password,
+        EmailAccount from, MimeMessage original, string toAddress,
         string? bodyOverride, CancellationToken ct)
     {
-        var reply = new MimeMessage();
-        reply.From.Add(new MailboxAddress(from.Email, from.Email));
-        reply.To.Add(MailboxAddress.Parse(toAddress));
         var origSubject = original.Subject ?? string.Empty;
-        reply.Subject = origSubject.StartsWith("Re: ", StringComparison.OrdinalIgnoreCase)
+        var subject = origSubject.StartsWith("Re: ", StringComparison.OrdinalIgnoreCase)
             ? origSubject
             : "Re: " + origSubject;
-        if (original.MessageId != null)
-        {
-            reply.InReplyTo = original.MessageId;
-            reply.References.AddRange(original.References);
-            reply.References.Add(original.MessageId);
-        }
-        var text = bodyOverride ?? ReplyBodies[Random.Shared.Next(ReplyBodies.Length)];
-        reply.Body = new TextPart("plain") { Text = text };
 
-        using var smtp = new SmtpClient();
-        await smtp.ConnectAsync(
-            config["Brevo:SmtpHost"] ?? "smtp-relay.brevo.com",
-            config.GetValue<int>("Brevo:SmtpPort", 465),
-            SecureSocketOptions.SslOnConnect, ct);
-        await smtp.AuthenticateAsync(config["Brevo:Login"], config["Brevo:ApiKey"], ct);
-        await smtp.SendAsync(reply, ct);
-        await smtp.DisconnectAsync(true, ct);
+        var text = bodyOverride ?? ReplyBodies[Random.Shared.Next(ReplyBodies.Length)];
+
+        var references = original.References.Concat(
+            original.MessageId != null ? [original.MessageId] : []);
+
+        await brevo.SendReplyAsync(from.Email, toAddress, subject, text, original.MessageId, references);
     }
 
     // ── Health ────────────────────────────────────────────────────────────────

@@ -12,9 +12,18 @@ builder.Services.AddControllers()
         o.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
 builder.Services.AddSingleton<EncryptionService>();
 builder.Services.AddSingleton<EmailConnectionService>();
-builder.Services.AddScoped<IEmailSendService, MailKitEmailSendService>();
+builder.Services.AddScoped<BrevoEmailSendService>();
+builder.Services.AddScoped<IEmailSendService, BrevoEmailSendService>();
 builder.Services.AddScoped<IWarmupService, WarmupService>();
 builder.Services.AddScoped<ICampaignDispatchService, CampaignDispatchService>();
+
+builder.Services.AddHttpClient("brevo", (sp, c) =>
+{
+    var cfg = sp.GetRequiredService<IConfiguration>();
+    c.BaseAddress = new Uri("https://api.brevo.com/");
+    c.DefaultRequestHeaders.Add("api-key", cfg["Brevo:HttpApiKey"]);
+    c.DefaultRequestHeaders.Add("accept", "application/json");
+});
 
 builder.Services.AddHttpClient("scraper", c =>
 {
