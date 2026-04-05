@@ -1,3 +1,5 @@
+using MailKit.Net.Smtp;
+using MailKit.Security;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RadLeads.Api.Data;
@@ -12,7 +14,8 @@ namespace RadLeads.Api.Controllers;
 public class EmailAccountsController(
     AppDbContext db,
     EmailConnectionService connection,
-    EncryptionService encryption) : ControllerBase
+    EncryptionService encryption,
+    IConfiguration config) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> GetAll()
@@ -118,5 +121,37 @@ public class EmailAccountsController(
         db.EmailAccounts.Remove(account);
         await db.SaveChangesAsync();
         return NoContent();
+    }
+
+    // Diagnostic: POST /api/email-accounts/test-brevo-smtp
+    // Attempts a real connection + auth to the configured Brevo relay and returns the result.
+    [HttpPost("test-brevo-smtp")]
+    public async Task<IActionResult> TestBrevoSmtp()
+    {
+        var host  = config["Brevo:SmtpHost"] ?? "smtp-relay.brevo.com";
+        var port  = config.GetValue<int>("Brevo:SmtpPort", 587);
+        var login = config["Brevo:Login"];
+        var key   = config["Brevo:ApiKey"];
+
+        try
+        {
+            using var smtp = new SmtpClient();
+            smtp.Timeout = 15_000; // 15 s — fail fast on the server
+            await smtp.ConnectAsync(host, port, SecureSocketOptions.StartTls);
+            await smtp.AuthenticateAsync(login, key);
+            await smtp.DisconnectAsync(true);
+
+            return Ok(new { success = true, host, port, login });
+        }
+        catch (Exception ex)
+        {
+            return Ok(new
+            {
+                success = false,
+                host, port, login,
+                error   = ex.Message,
+                type    = ex.GetType().Name,
+            });
+        }
     }
 }
