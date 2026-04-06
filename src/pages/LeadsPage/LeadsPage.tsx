@@ -1,4 +1,6 @@
+import { useRef } from 'react'
 import { Search } from 'lucide-react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { PersonDetailPanel } from '@/components/leads/LeadDetailPanel'
 import { ImportCSVDialog } from '@/components/leads/ImportCSVDialog'
 import { cn } from '@/lib/utils'
@@ -10,6 +12,17 @@ import { COMPANY_GRID } from './constants'
 
 export function LeadsPage() {
   const state = useLeadsPage()
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  const virtualizer = useVirtualizer({
+    count: state.filtered.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: o => state.expandedIds.has(state.filtered[o].id)
+      ? 48 + state.filtered[o].people.length * 48
+      : 48,
+    measureElement: el => el.getBoundingClientRect().height,
+    overscan: 8,
+  })
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -56,7 +69,7 @@ export function LeadsPage() {
 
       {/* Table + detail panel */}
       <div className="relative flex flex-1 min-h-0 overflow-hidden">
-        <div className="flex-1 overflow-auto">
+        <div ref={scrollRef} className="flex-1 overflow-auto">
           <div className="min-w-[720px]">
 
             {/* Header row */}
@@ -77,40 +90,50 @@ export function LeadsPage() {
               <div />
             </div>
 
-            {/* Rows */}
-            <div className="bg-card divide-y divide-border">
-              {state.filtered.length === 0 && (
-                <div className="px-4 py-16 text-center">
-                  <p className="text-sm text-muted-foreground">No leads match your filter.</p>
-                  <button
-                    onClick={() => { state.setActiveTab('all'); state.setSearch('') }}
-                    className="mt-2 text-xs text-blue-600 hover:underline"
-                  >
-                    Clear filters
-                  </button>
-                </div>
-              )}
-
-              {state.filtered.map(company => (
-                <CompanyRow
-                  key={company.id}
-                  company={company}
-                  campaigns={state.campaigns}
-                  isExpanded={state.expandedIds.has(company.id)}
-                  isChecked={state.checkedIds.has(company.id)}
-                  selectedPersonId={
-                    state.selected?.companyId === company.id ? state.selected.personId : null
-                  }
-                  onExpand={() => state.toggleExpand(company.id)}
-                  onCheck={checked => state.toggleCheck(company.id, checked)}
-                  onSelectPerson={personId =>
-                    state.setSelected(personId ? { companyId: company.id, personId } : null)
-                  }
-                  onResearch={() => state.handleResearch(company.id)}
-                  onEnrich={() => state.handleEnrich(company.id)}
-                />
-              ))}
-            </div>
+            {/* Virtual rows */}
+            {state.filtered.length === 0 ? (
+              <div className="px-4 py-16 text-center">
+                <p className="text-sm text-muted-foreground">No leads match your filter.</p>
+                <button
+                  onClick={() => { state.setActiveTab('all'); state.setSearch('') }}
+                  className="mt-2 text-xs text-blue-600 hover:underline"
+                >
+                  Clear filters
+                </button>
+              </div>
+            ) : (
+              <div className="bg-card relative" style={{ height: virtualizer.getTotalSize() }}>
+                {virtualizer.getVirtualItems().map(vitem => {
+                  const company = state.filtered[vitem.index]
+                  return (
+                    <div
+                      key={company.id}
+                      ref={virtualizer.measureElement}
+                      data-index={vitem.index}
+                      className="absolute top-0 left-0 w-full border-b border-border"
+                      style={{ transform: `translateY(${vitem.start}px)` }}
+                    >
+                      <CompanyRow
+                        company={company}
+                        campaigns={state.campaigns}
+                        isExpanded={state.expandedIds.has(company.id)}
+                        isChecked={state.checkedIds.has(company.id)}
+                        selectedPersonId={
+                          state.selected?.companyId === company.id ? state.selected.personId : null
+                        }
+                        onExpand={() => state.toggleExpand(company.id)}
+                        onCheck={checked => state.toggleCheck(company.id, checked)}
+                        onSelectPerson={personId =>
+                          state.setSelected(personId ? { companyId: company.id, personId } : null)
+                        }
+                        onResearch={() => state.handleResearch(company.id)}
+                        onEnrich={() => state.handleEnrich(company.id)}
+                      />
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         </div>
 

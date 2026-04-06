@@ -7,7 +7,7 @@ const enrichStatusMap: Record<string, EnrichStatus> = {
   Researched:   'researched',
   Enriching:    'enriching',
   Enriched:     'enriched',
-  Failed:       'failed',
+  ResearchFailed: 'research_failed',
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

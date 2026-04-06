@@ -6,7 +6,7 @@ export const ENRICH_CONFIG: Record<EnrichStatus, { label: string; cls: string; s
   researched:   { label: 'Researched',   cls: 'bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-400' },
   enriching:    { label: 'Enriching…',   cls: 'bg-violet-50 dark:bg-violet-950 text-violet-700 dark:text-violet-400', spin: true },
   enriched:     { label: 'Enriched',     cls: 'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400' },
-  failed:       { label: 'Failed',       cls: 'bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400' },
+  research_failed: { label: 'Research Failed', cls: 'bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400' },
 }
 
 export const SOURCE_STYLES: Record<EmailSource, string> = {
@@ -26,14 +26,14 @@ export const STATUS_STYLES: Record<EmailStatus, string> = {
   unknown:  'bg-muted text-muted-foreground',
 }
 
-export type TabKey = 'all' | 'not_enriched' | 'researched' | 'enriched' | 'failed' | 'in_campaign'
+export type TabKey = 'all' | 'not_enriched' | 'researched' | 'enriched' | 'research_failed' | 'in_campaign'
 
 export const TABS: { key: TabKey; label: string }[] = [
   { key: 'all',          label: 'All' },
   { key: 'not_enriched', label: 'Not Started' },
   { key: 'researched',   label: 'Researched' },
   { key: 'enriched',     label: 'Enriched' },
-  { key: 'failed',       label: 'Failed' },
+  { key: 'research_failed', label: 'Research Failed' },
   { key: 'in_campaign',  label: 'In Campaign' },
 ]
 

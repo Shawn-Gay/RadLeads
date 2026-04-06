@@ -127,7 +127,8 @@ public class CompaniesController(AppDbContext db) : ControllerBase
     public async Task<IActionResult> QueueResearch([FromBody] Guid[] ids)
     {
         var companies = await db.Companies
-            .Where(o => ids.Contains(o.Id) && o.EnrichStatus == EnrichStatus.NotEnriched)
+            .Where(o => ids.Contains(o.Id)
+                     && (o.EnrichStatus == EnrichStatus.NotEnriched || o.EnrichStatus == EnrichStatus.ResearchFailed))
             .ToListAsync();
         foreach (var c in companies)
             c.EnrichStatus = EnrichStatus.Researching;

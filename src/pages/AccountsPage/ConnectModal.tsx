@@ -209,7 +209,7 @@ export function ConnectModal({ onClose, onConnected }: ConnectModalProps) {
           {step === 'credentials' ? (
             <>
               <button onClick={() => setStep('select')} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-                ← Back
+                Back
               </button>
               <button
                 onClick={handleTestConnection}

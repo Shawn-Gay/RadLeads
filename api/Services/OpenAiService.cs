@@ -14,8 +14,8 @@ public class OpenAiService(IConfiguration config, ILogger<OpenAiService> logger)
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
 
-    // Max chars of crawled text sent to AI — keeps token cost predictable
-    private const int MaxTextChars = 14_000;
+    // Max chars of crawled text sent to AI — per-page cap in CombinedText already limits input
+    private const int MaxTextChars = 40_000;
 
     // Returns null (and logs a warning) when the API key is not configured.
     private ChatClient? GetChatClient()

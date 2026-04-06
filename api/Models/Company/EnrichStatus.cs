@@ -7,5 +7,5 @@ public enum EnrichStatus
     Researched,
     Enriching,
     Enriched,
-    Failed,
+    ResearchFailed,
 }

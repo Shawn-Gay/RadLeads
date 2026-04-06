@@ -40,7 +40,7 @@ export function useLeadsPage() {
     not_enriched: companies.filter(o => o.enrichStatus === 'not_enriched' || o.enrichStatus === 'researching').length,
     researched:   companies.filter(o => o.enrichStatus === 'researched'   || o.enrichStatus === 'enriching').length,
     enriched:     companies.filter(o => o.enrichStatus === 'enriched').length,
-    failed:       companies.filter(o => o.enrichStatus === 'failed').length,
+    research_failed: companies.filter(o => o.enrichStatus === 'research_failed').length,
     in_campaign:  companies.filter(o => o.people.some(p => p.campaignIds.length > 0)).length,
   }), [companies])
 

@@ -21,6 +21,7 @@ public class SummarizeLeadsJob(
         // Load companies queued for enrichment, with their scraped research
         var companies = await db.Companies
             .Include(o => o.Research)
+            .Include(o => o.People)
             .Where(o => o.EnrichStatus == EnrichStatus.Enriching && o.Research != null)
             .Take(BatchSize)
             .ToListAsync(ct);
@@ -37,7 +38,7 @@ public class SummarizeLeadsJob(
 
             if (string.IsNullOrWhiteSpace(research.RawText))
             {
-                company.EnrichStatus = EnrichStatus.Failed;
+                company.EnrichStatus = EnrichStatus.ResearchFailed;
                 research.ErrorMessage = "No scraped text available — run Research first";
                 await db.SaveChangesAsync(ct);
                 continue;
@@ -49,7 +50,7 @@ public class SummarizeLeadsJob(
 
                 if (summary is null)
                 {
-                    company.EnrichStatus = EnrichStatus.Failed;
+                    company.EnrichStatus = EnrichStatus.ResearchFailed;
                     research.ErrorMessage = "AI returned no result";
                 }
                 else
@@ -64,18 +65,85 @@ public class SummarizeLeadsJob(
                     research.SummarizedAt   = DateTimeOffset.UtcNow;
                     research.ErrorMessage   = null;
 
-                    logger.LogDebug("Enriched {Domain}: {People} people, {PainPoints} pain points",
+                    SavePeopleWithGuessedEmails(db, company, summary.KeyPeople);
+
+                    logger.LogInformation("Enriched {Domain}: {People} people extracted, {PainPoints} pain points",
                         company.Domain, summary.KeyPeople.Count, summary.PainPoints.Count);
                 }
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Summarize failed for {Domain}", company.Domain);
-                company.EnrichStatus = EnrichStatus.Failed;
+                company.EnrichStatus = EnrichStatus.ResearchFailed;
                 research.ErrorMessage = ex.Message;
             }
 
             await db.SaveChangesAsync(ct);
         }
+    }
+
+    private static void SavePeopleWithGuessedEmails(
+        AppDbContext db, Company company, List<ExtractedPerson> keyPeople)
+    {
+        var existingNames = company.People
+            .Select(o => $"{o.FirstName} {o.LastName}".ToLowerInvariant())
+            .ToHashSet();
+
+        foreach (var extracted in keyPeople)
+        {
+            var (first, last) = SplitName(extracted.Name);
+            if (string.IsNullOrEmpty(first)) continue;
+
+            var fullNameKey = $"{first} {last}".ToLowerInvariant().Trim();
+            if (existingNames.Contains(fullNameKey)) continue;
+
+            var person = new LeadPerson
+            {
+                FirstName = Capitalize(first),
+                LastName  = Capitalize(last),
+                Title     = extracted.Title,
+                Company   = company,
+                Emails    = GuessEmails(first, last, company.Domain),
+            };
+
+            db.LeadPersons.Add(person);
+        }
+    }
+
+    private static (string first, string last) SplitName(string fullName)
+    {
+        var parts = fullName.Trim().Split(' ', 2);
+        var first = parts[0].ToLowerInvariant();
+        var last  = parts.Length > 1
+            ? parts[1].ToLowerInvariant().Replace(" ", "")
+            : string.Empty;
+        return (first, last);
+    }
+
+    private static string Capitalize(string s) =>
+        string.IsNullOrEmpty(s) ? s : char.ToUpperInvariant(s[0]) + s[1..];
+
+    private static List<LeadEmail> GuessEmails(string first, string last, string domain)
+    {
+        var addresses = string.IsNullOrEmpty(last)
+            ? [$"{first}@{domain}"]
+            : (string[])
+            [
+                $"{first}@{domain}",
+                $"{first}.{last}@{domain}",
+                $"{first[0]}{last}@{domain}",
+                $"{first[0]}.{last}@{domain}",
+            ];
+
+        return addresses
+            .Distinct()
+            .Select((a, i) => new LeadEmail
+            {
+                Address   = a,
+                Source    = EmailSource.Guessed,
+                IsPrimary = i == 0,
+                Status    = EmailStatus.Unknown,
+            })
+            .ToList();
     }
 }

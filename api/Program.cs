@@ -25,13 +25,28 @@ builder.Services.AddHttpClient("brevo", (sp, c) =>
     c.DefaultRequestHeaders.Add("accept", "application/json");
 });
 
-builder.Services.AddHttpClient("scraper", c =>
-{
-    c.DefaultRequestHeaders.UserAgent.ParseAdd(
-        "Mozilla/5.0 (compatible; RadLeads-Enrichment/1.0)");
-    c.Timeout = TimeSpan.FromSeconds(15);
-});
-builder.Services.AddSingleton<IScrapingService, WebCrawlerService>();
+builder.Services.AddHttpClient("scraper")
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+    {
+        AutomaticDecompression = System.Net.DecompressionMethods.All,
+        AllowAutoRedirect       = true,
+        MaxAutomaticRedirections = 5,
+    })
+    .ConfigureHttpClient(c =>
+    {
+        c.DefaultRequestHeaders.UserAgent.ParseAdd(
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
+        c.DefaultRequestHeaders.Add("Accept",                    "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8");
+        c.DefaultRequestHeaders.Add("Accept-Language",           "en-US,en;q=0.9");
+        c.DefaultRequestHeaders.Add("Cache-Control",             "max-age=0");
+        c.DefaultRequestHeaders.Add("Upgrade-Insecure-Requests", "1");
+        c.DefaultRequestHeaders.Add("Sec-Fetch-Site",            "none");
+        c.DefaultRequestHeaders.Add("Sec-Fetch-Mode",            "navigate");
+        c.DefaultRequestHeaders.Add("Sec-Fetch-User",            "?1");
+        c.DefaultRequestHeaders.Add("Sec-Fetch-Dest",            "document");
+        c.Timeout = TimeSpan.FromSeconds(15);
+    });
+builder.Services.AddSingleton<IScrapingService, PlaywrightScraperService>();
 builder.Services.AddSingleton<IAiService, OpenAiService>();
 
 builder.Services.AddQuartz(q =>
@@ -74,7 +89,7 @@ builder.Services.AddQuartz(q =>
         .WithIdentity("CampaignScheduleTrigger")
         .WithCronSchedule("0 5 8 * * ?"));   // 8:05 AM UTC — after warmup schedule
 
-    // Lead enrichment — scrape every 2 min, AI summarize every 5 min
+    // Lead enrichment — scrape every 2 min, AI summarize every 5 min, verify emails every 10 min
     q.AddJob<ScrapeLeadsJob>(j => j
         .WithIdentity("ScrapeLeadsJob")
         .StoreDurably())
@@ -96,7 +111,6 @@ builder.Services.AddQuartz(q =>
             .WithIntervalInMinutes(5)
             .RepeatForever()
             .WithMisfireHandlingInstructionNextWithRemainingCount()));
-
 
 });
 

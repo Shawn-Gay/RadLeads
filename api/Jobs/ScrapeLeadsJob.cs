@@ -37,7 +37,7 @@ public class ScrapeLeadsJob(
 
                 if (result.Pages.Count == 0)
                 {
-                    company.EnrichStatus = EnrichStatus.Failed;
+                    company.EnrichStatus = EnrichStatus.ResearchFailed;
                     SetResearch(db, company, r =>
                     {
                         r.ErrorMessage = "No pages could be crawled";
@@ -64,11 +64,19 @@ public class ScrapeLeadsJob(
             catch (Exception ex)
             {
                 logger.LogError(ex, "Scrape failed for {Domain}", company.Domain);
-                company.EnrichStatus = EnrichStatus.Failed;
+                company.EnrichStatus = EnrichStatus.ResearchFailed;
                 SetResearch(db, company, r => r.ErrorMessage = ex.Message);
             }
 
-            await db.SaveChangesAsync(ct);
+            try
+            {
+                await db.SaveChangesAsync(ct);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to save scrape results for {Domain}", company.Domain);
+            }
+
         }
     }
 
@@ -77,12 +85,14 @@ public class ScrapeLeadsJob(
     {
         var research = db.CompanyResearches
             .Local
-            .FirstOrDefault(o => o.Company.Id == company.Id)
-            ?? new CompanyResearch { Company = company };
+            .FirstOrDefault(o => o.Company.Id == company.Id);
+
+        if (research == null)
+        {
+            research = new CompanyResearch { Company = company };
+            db.CompanyResearches.Add(research);
+        }
 
         configure(research);
-
-        if (research.Id == Guid.Empty)
-            db.CompanyResearches.Add(research);
     }
 }

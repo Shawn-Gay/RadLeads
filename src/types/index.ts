@@ -1,6 +1,6 @@
 export type EmailSource = 'csv' | 'guessed' | 'scraped' | 'api'
 export type EmailStatus = 'verified' | 'bounced' | 'unknown'
-export type EnrichStatus = 'not_enriched' | 'researching' | 'researched' | 'enriching' | 'enriched' | 'failed'
+export type EnrichStatus = 'not_enriched' | 'researching' | 'researched' | 'enriching' | 'enriched' | 'research_failed'
 export type CampaignStatus = 'active' | 'draft' | 'paused'
 export type AccountStatus = 'active' | 'warming' | 'paused' | 'inactive'
 export type AccountProvider = 'namecheap' | 'google' | 'smtp'
