@@ -138,7 +138,7 @@ export function DashboardPage() {
               researched:   'text-sky-600',
               researching:  'text-amber-600',
               not_enriched: 'text-muted-foreground',
-              failed:       'text-red-600',
+              research_failed: 'text-red-600',
             }[company.enrichStatus]
 
             return (
