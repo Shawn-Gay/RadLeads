@@ -1,4 +1,4 @@
-import { Download, Upload, Globe, Sparkles, Users, ChevronDown } from 'lucide-react'
+import { Download, Upload, Globe, Sparkles, Users, ChevronDown, Phone } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Campaign } from '@/types'
 
@@ -20,13 +20,14 @@ interface LeadsToolbarProps {
   onEnrichSelected: () => void
   onAddToCampaign: (campaignId: string) => void
   onToggleCampaignPicker: () => void
+  onStartDialer: () => void
 }
 
 export function LeadsToolbar({
   companiesCount, totalPeople, researchedCount, enrichedCount,
   someChecked, checkedNotStartedCount, checkedResearchedCount, checkedEnrichedCount,
   campaigns, showCampaignPicker, campaignPickerRef,
-  onExport, onImport, onResearchSelected, onEnrichSelected, onAddToCampaign, onToggleCampaignPicker,
+  onExport, onImport, onResearchSelected, onEnrichSelected, onAddToCampaign, onToggleCampaignPicker, onStartDialer,
 }: LeadsToolbarProps) {
   return (
     <div className="bg-card border-b border-border px-5 py-3 shrink-0 flex items-center gap-3">
@@ -104,6 +105,13 @@ export function LeadsToolbar({
             )}
           </div>
         )}
+
+        <button
+          onClick={onStartDialer}
+          className="flex items-center gap-1.5 text-xs text-white bg-emerald-600 hover:bg-emerald-700 px-2.5 py-1.5 rounded-md transition-colors"
+        >
+          <Phone className="h-3.5 w-3.5" /> Dialer
+        </button>
 
         <button
           onClick={onImport}

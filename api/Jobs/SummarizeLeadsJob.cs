@@ -99,11 +99,12 @@ public class SummarizeLeadsJob(
 
             var person = new LeadPerson
             {
-                FirstName = Capitalize(first),
-                LastName  = Capitalize(last),
-                Title     = extracted.Title,
-                Company   = company,
-                Emails    = GuessEmails(first, last, company.Domain),
+                FirstName  = Capitalize(first),
+                LastName   = Capitalize(last),
+                Title      = extracted.Title,
+                SourcePage = extracted.SourcePage,
+                Company    = company,
+                Emails     = GuessEmails(first, last, company.Domain),
             };
 
             db.LeadPersons.Add(person);

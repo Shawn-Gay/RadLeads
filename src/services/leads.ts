@@ -1,4 +1,4 @@
-import type { Company, EnrichStatus, EmailSource, EmailStatus, ImportPersonInput } from '@/types'
+import type { Company, EnrichStatus, EmailSource, EmailStatus, ImportPersonInput, ImportCompanyInput } from '@/types'
 import { apiFetch } from '@/lib/api'
 
 const enrichStatusMap: Record<string, EnrichStatus> = {
@@ -19,6 +19,7 @@ function mapCompany(raw: any): Company {
     employees:    raw.employees ?? undefined,
     summary:      raw.summary ?? undefined,
     recentNews:   raw.recentNews ?? undefined,
+    phone:        raw.phone ?? null,
     enrichStatus: enrichStatusMap[raw.enrichStatus] ?? 'not_enriched',
     researchedAt: raw.researchedAt ?? undefined,
     enrichedAt:   raw.enrichedAt ?? undefined,
@@ -67,6 +68,14 @@ export async function importPeople(people: ImportPersonInput[]): Promise<Company
   const data = await apiFetch<any[]>('/api/companies/import', {
     method: 'POST',
     body: JSON.stringify(people),
+  })
+  return data.map(mapCompany)
+}
+
+export async function importCompanies(companies: ImportCompanyInput[]): Promise<Company[]> {
+  const data = await apiFetch<any[]>('/api/companies/import-companies', {
+    method: 'POST',
+    body: JSON.stringify(companies),
   })
   return data.map(mapCompany)
 }

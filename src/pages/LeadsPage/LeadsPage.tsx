@@ -8,6 +8,7 @@ import { useLeadsPage } from './useLeadsPage'
 import { LeadsToolbar } from './LeadsToolbar'
 import { LeadsTabs } from './LeadsTabs'
 import { CompanyRow } from './CompanyRow'
+import { DialerPanel } from './DialerPanel'
 import { COMPANY_GRID } from './constants'
 
 export function LeadsPage() {
@@ -23,6 +24,26 @@ export function LeadsPage() {
     measureElement: el => el.getBoundingClientRect().height,
     overscan: 8,
   })
+
+  // Full-page Dialer mode
+  if (state.dialerMode && state.dialerCompany) {
+    return (
+      <div className="flex flex-col h-full overflow-hidden">
+        <DialerPanel
+          company={state.dialerCompany}
+          index={state.dialerIndex ?? 0}
+          total={state.filtered.length}
+          initialPersonId={state.dialerPersonId}
+          callLogs={state.callLogsByCompany.get(state.dialerCompany.id) ?? []}
+          onPrev={state.dialerPrev}
+          onNext={state.dialerNext}
+          onNextCold={state.dialerNextCold}
+          onExit={state.dialerExit}
+          onCallLogged={state.refreshCallLogs}
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -45,6 +66,7 @@ export function LeadsPage() {
         onEnrichSelected={state.handleEnrichSelected}
         onAddToCampaign={state.handleAddToCampaign}
         onToggleCampaignPicker={() => state.setShowCampaignPicker(o => !o)}
+        onStartDialer={state.startDialer}
       />
 
       <LeadsTabs
@@ -59,7 +81,7 @@ export function LeadsPage() {
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
           <input
             type="text"
-            placeholder="Search domains, companies, people…"
+            placeholder="Search domains, companies, people..."
             value={state.search}
             onChange={e => state.setSearch(e.target.value)}
             className="w-full pl-8 pr-3 py-1.5 text-xs bg-muted border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-foreground placeholder:text-muted-foreground"
@@ -86,7 +108,6 @@ export function LeadsPage() {
               <div className="text-xs font-medium text-muted-foreground pl-1">Domain / Company</div>
               <div className="text-xs font-medium text-muted-foreground">People</div>
               <div className="text-xs font-medium text-muted-foreground">Stage</div>
-              <div className="text-xs font-medium text-muted-foreground">Last Updated</div>
               <div />
             </div>
 
@@ -116,6 +137,8 @@ export function LeadsPage() {
                       <CompanyRow
                         company={company}
                         campaigns={state.campaigns}
+                        callLogsByPerson={state.callLogsByPerson}
+                        companyCallLogs={state.callLogsByCompany.get(company.id) ?? []}
                         isExpanded={state.expandedIds.has(company.id)}
                         isChecked={state.checkedIds.has(company.id)}
                         selectedPersonId={
@@ -128,6 +151,8 @@ export function LeadsPage() {
                         }
                         onResearch={() => state.handleResearch(company.id)}
                         onEnrich={() => state.handleEnrich(company.id)}
+                        onCallCompany={() => state.openDialer(company.id)}
+                        onCall={personId => state.openDialer(company.id, personId)}
                       />
                     </div>
                   )
@@ -152,8 +177,12 @@ export function LeadsPage() {
       {state.showImport && (
         <ImportCSVDialog
           onClose={() => state.setShowImport(false)}
-          onImport={people => {
+          onImportPeople={people => {
             state.addFromImport(people)
+            state.setShowImport(false)
+          }}
+          onImportCompanies={companies => {
+            state.addFromCompanyImport(companies)
             state.setShowImport(false)
           }}
         />

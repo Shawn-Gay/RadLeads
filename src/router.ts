@@ -12,6 +12,7 @@ import { EnrichPage } from "@/pages/EnrichPage"
 import { CampaignEditPage } from "@/pages/CampaignEditPage"
 import { InboxPage } from "@/pages/InboxPage"
 import { AccountsPage } from "@/pages/AccountsPage"
+import { SettingsPage } from "@/pages/SettingsPage"
 
 const rootRoute = createRootRoute({ component: Layout })
 
@@ -57,6 +58,12 @@ const accountsRoute = createRoute({
   component: AccountsPage,
 })
 
+const settingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/settings",
+  component: SettingsPage,
+})
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   campaignsRoute,
@@ -65,6 +72,7 @@ const routeTree = rootRoute.addChildren([
   enrichRoute,
   inboxRoute,
   accountsRoute,
+  settingsRoute,
 ])
 
 export const router = createRouter({ routeTree })

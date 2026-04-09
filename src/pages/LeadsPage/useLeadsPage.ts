@@ -1,12 +1,13 @@
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { useAppContext } from '@/context/AppContext'
-import type { Company } from '@/types'
+import { getAllCallLogs } from '@/services/callLogs'
+import type { Company, CallLog } from '@/types'
 import type { TabKey } from './constants'
 
 export function useLeadsPage() {
   const {
     companies, campaigns,
-    updateCompany, addFromImport,
+    updateCompany, addFromImport, addFromCompanyImport,
     queueResearchCompanies, queueEnrichCompanies,
     enrollPeopleInCampaign,
   } = useAppContext()
@@ -18,7 +19,47 @@ export function useLeadsPage() {
   const [search, setSearch]                         = useState('')
   const [showImport, setShowImport]                 = useState(false)
   const [showCampaignPicker, setShowCampaignPicker] = useState(false)
+  // dialer: index into `filtered`, null = closed
+  const [dialerMode, setDialerMode]                 = useState(false)
+  const [dialerIndex, setDialerIndex]               = useState<number | null>(null)
+  const [dialerPersonId, setDialerPersonId]         = useState<string | null>(null)
+  const [callLogs, setCallLogs]                     = useState<CallLog[]>([])
   const campaignPickerRef                           = useRef<HTMLDivElement>(null)
+
+  // Fetch call logs on mount
+  const refreshCallLogs = useCallback(() => {
+    getAllCallLogs().then(setCallLogs).catch(err => console.error('Failed to load call logs:', err))
+  }, [])
+
+  useEffect(() => { refreshCallLogs() }, [refreshCallLogs])
+
+  // Lookup: personId → most recent call log
+  const callLogsByPerson = useMemo(() => {
+    const map = new Map<string, CallLog>()
+    for (const log of callLogs) {
+      if (!log.personId) continue
+      const existing = map.get(log.personId)
+      if (!existing || log.calledAt > existing.calledAt) {
+        map.set(log.personId, log)
+      }
+    }
+    return map
+  }, [callLogs])
+
+  // Lookup: companyId → all call logs (newest first)
+  const callLogsByCompany = useMemo(() => {
+    const map = new Map<string, CallLog[]>()
+    for (const log of callLogs) {
+      if (!log.companyId) continue
+      const arr = map.get(log.companyId) ?? []
+      arr.push(log)
+      map.set(log.companyId, arr)
+    }
+    for (const arr of map.values()) {
+      arr.sort((a, b) => b.calledAt.localeCompare(a.calledAt))
+    }
+    return map
+  }, [callLogs])
 
   useEffect(() => {
     if (!showCampaignPicker) return
@@ -85,6 +126,58 @@ export function useLeadsPage() {
   const checkedEnrichedCount = useMemo(() =>
     [...checkedIds].filter(id => companies.find(o => o.id === id)?.enrichStatus === 'enriched').length,
     [checkedIds, companies])
+
+  function startDialer() {
+    if (filtered.length === 0) return
+    setDialerMode(true)
+    setDialerIndex(0)
+    setDialerPersonId(null)
+  }
+
+  function openDialer(companyId: string, personId?: string) {
+    const idx = filtered.findIndex(o => o.id === companyId)
+    if (idx === -1) return
+    setDialerMode(true)
+    setDialerIndex(idx)
+    setDialerPersonId(personId ?? null)
+  }
+
+  function dialerPrev() {
+    setDialerIndex(prev => {
+      if (prev === null || prev <= 0) return prev
+      return prev - 1
+    })
+    setDialerPersonId(null)
+  }
+
+  function dialerNext() {
+    setDialerIndex(prev => {
+      if (prev === null) return null
+      if (prev < filtered.length - 1) return prev + 1
+      // Reached the end — exit dialer
+      setDialerMode(false)
+      return null
+    })
+    setDialerPersonId(null)
+  }
+
+  function dialerNextCold() {
+    setDialerIndex(prev => {
+      if (prev === null) return null
+      for (let i = prev + 1; i < filtered.length; i++) {
+        if (!callLogsByCompany.has(filtered[i].id)) return i
+      }
+      // Nothing cold ahead — stay put
+      return prev
+    })
+    setDialerPersonId(null)
+  }
+
+  function dialerExit() {
+    setDialerMode(false)
+    setDialerIndex(null)
+    setDialerPersonId(null)
+  }
 
   function toggleExpand(id: string) {
     setExpandedIds(prev => {
@@ -187,10 +280,18 @@ export function useLeadsPage() {
     checkedNotStartedCount, checkedResearchedCount, checkedEnrichedCount,
     // flags
     allChecked, someChecked,
+    // dialer
+    dialerMode,
+    dialerIndex,
+    dialerCompany: dialerIndex !== null ? filtered[dialerIndex] ?? null : null,
+    dialerPersonId,
+    startDialer, openDialer, dialerPrev, dialerNext, dialerNextCold, dialerExit,
+    // call logs
+    callLogsByPerson, callLogsByCompany, refreshCallLogs,
     // actions
     toggleExpand, toggleCheck, toggleCheckAll,
     handleResearch, handleEnrich,
     handleResearchSelected, handleEnrichSelected, handleAddToCampaign,
-    exportCSV, addFromImport,
+    exportCSV, addFromImport, addFromCompanyImport,
   }
 }

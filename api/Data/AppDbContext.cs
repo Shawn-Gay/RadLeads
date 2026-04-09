@@ -17,6 +17,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<CompanyResearch> CompanyResearches => Set<CompanyResearch>();
     public DbSet<OutboundEmail> OutboundEmails => Set<OutboundEmail>();
     public DbSet<InboxReply> InboxReplies => Set<InboxReply>();
+    public DbSet<CallLog> CallLogs => Set<CallLog>();
 
     // Auto-set UpdatedAt on every save
     public override Task<int> SaveChangesAsync(CancellationToken ct = default)
@@ -40,6 +41,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         config.Properties<AccountStatus>().HaveConversion<string>();
         config.Properties<WarmupAction>().HaveConversion<string>();
         config.Properties<OutboundEmailStatus>().HaveConversion<string>();
+        config.Properties<CallOutcome>().HaveConversion<string>();
     }
 
     protected override void OnModelCreating(ModelBuilder model)
@@ -64,5 +66,18 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         model.Entity<CampaignSend>()
             .HasIndex(o => o.Token)
             .IsUnique();
+
+        // CallLog: optional Person + optional Company (at least one set at API level)
+        model.Entity<CallLog>()
+            .HasOne(o => o.Person)
+            .WithMany(o => o.CallLogs)
+            .HasForeignKey("PersonId")
+            .IsRequired(false);
+
+        model.Entity<CallLog>()
+            .HasOne(o => o.Company)
+            .WithMany()
+            .HasForeignKey("CompanyId")
+            .IsRequired(false);
     }
 }

@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
-import type { Company, LeadPerson, Campaign, EmailAccount, WarmupActivity, InboxMessage, ImportPersonInput } from '@/types'
-import { getLeads, importPeople, queueResearch, queueEnrich } from '@/services/leads'
+import type { Company, LeadPerson, Campaign, EmailAccount, WarmupActivity, InboxMessage, ImportPersonInput, ImportCompanyInput } from '@/types'
+import { getLeads, importPeople, importCompanies, queueResearch, queueEnrich } from '@/services/leads'
 import { getCampaigns, createCampaign, saveCampaign, enrollPeople, unenrollPerson } from '@/services/campaigns'
 import { getAccounts, getWarmupActivities, patchAccountStatus, deleteAccount } from '@/services/accounts'
 import { getInbox, markMessageRead } from '@/services/inbox'
@@ -9,6 +9,7 @@ interface AppContextValue {
   companies: Company[]
   setCompanies: React.Dispatch<React.SetStateAction<Company[]>>
   addFromImport: (people: ImportPersonInput[]) => Promise<void>
+  addFromCompanyImport: (inputs: ImportCompanyInput[]) => Promise<void>
   updateCompany: (id: string, partial: Partial<Omit<Company, 'people' | 'id'>>) => void
   updatePerson: (companyId: string, personId: string, partial: Partial<Omit<LeadPerson, 'id'>>) => void
   queueResearchCompanies: (ids: string[]) => Promise<void>
@@ -16,14 +17,18 @@ interface AppContextValue {
   enrollPeopleInCampaign: (personIds: string[], campaignId: string) => void
   removePersonFromCampaign: (personId: string, campaignId: string) => void
   campaigns: Campaign[]
+  setCampaigns: React.Dispatch<React.SetStateAction<Campaign[]>>
   addCampaign: (c: Omit<Campaign, 'id'>) => Promise<Campaign>
   updateCampaign: (c: Campaign) => void
   accounts: EmailAccount[]
+  setAccounts: React.Dispatch<React.SetStateAction<EmailAccount[]>>
   addAccount: (account: EmailAccount) => void
   toggleAccountStatus: (account: EmailAccount) => Promise<void>
   removeAccount: (id: string) => Promise<void>
   warmupActivities: WarmupActivity[]
+  setWarmupActivities: React.Dispatch<React.SetStateAction<WarmupActivity[]>>
   inbox: InboxMessage[]
+  setInbox: React.Dispatch<React.SetStateAction<InboxMessage[]>>
   markRead: (id: string) => void
 }
 
@@ -46,6 +51,19 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
 
   async function addFromImport(people: ImportPersonInput[]): Promise<void> {
     const updated = await importPeople(people)
+    setCompanies(prev => {
+      const next = [...prev]
+      for (const incoming of updated) {
+        const idx = next.findIndex(o => o.id === incoming.id)
+        if (idx >= 0) next[idx] = incoming
+        else next.push(incoming)
+      }
+      return next
+    })
+  }
+
+  async function addFromCompanyImport(inputs: ImportCompanyInput[]): Promise<void> {
+    const updated = await importCompanies(inputs)
     setCompanies(prev => {
       const next = [...prev]
       for (const incoming of updated) {
@@ -145,14 +163,14 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
 
   return (
     <AppContext.Provider value={{
-      companies, setCompanies, addFromImport,
+      companies, setCompanies, addFromImport, addFromCompanyImport,
       updateCompany, updatePerson,
       queueResearchCompanies, queueEnrichCompanies,
       enrollPeopleInCampaign, removePersonFromCampaign,
-      campaigns, addCampaign, updateCampaign,
-      accounts, addAccount, toggleAccountStatus, removeAccount,
-      warmupActivities,
-      inbox, markRead,
+      campaigns, setCampaigns, addCampaign, updateCampaign,
+      accounts, setAccounts, addAccount, toggleAccountStatus, removeAccount,
+      warmupActivities, setWarmupActivities,
+      inbox, setInbox, markRead,
     }}>
       {children}
     </AppContext.Provider>

@@ -7,6 +7,7 @@ public class Company : BaseEntity
     public string? Employees { get; set; }
     public string? Summary { get; set; }
     public string? RecentNews { get; set; }
+    public string? Phone { get; set; }
     public EnrichStatus EnrichStatus { get; set; } = EnrichStatus.NotEnriched;
     public DateTimeOffset? ResearchedAt { get; set; }
     public DateTimeOffset? EnrichedAt { get; set; }

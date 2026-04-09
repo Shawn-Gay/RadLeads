@@ -28,6 +28,7 @@ public record CompanyDto(
     string? Employees,
     string? Summary,
     string? RecentNews,
+    string? Phone,
     EnrichStatus EnrichStatus,
     DateTimeOffset? ResearchedAt,
     DateTimeOffset? EnrichedAt,
@@ -44,3 +45,9 @@ public record ImportPersonInput(
     string? Phone,
     string? City,
     string? LinkedinUrl);
+
+public record ImportCompanyInput(
+    string Domain,
+    string? CompanyName,
+    string? Phone,
+    string? Employees);

@@ -1,17 +1,24 @@
 import { useState, useRef, useCallback } from 'react'
 import { Upload, X, ChevronRight, FileText, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { ImportPersonInput } from '@/types'
+import type { ImportPersonInput, ImportCompanyInput } from '@/types'
+
+type ImportMode = 'people' | 'companies'
 
 interface ImportCSVDialogProps {
   onClose: () => void
-  onImport: (people: ImportPersonInput[]) => void
+  onImportPeople: (people: ImportPersonInput[]) => void
+  onImportCompanies: (companies: ImportCompanyInput[]) => void
 }
 
-type FieldKey =
+type PersonFieldKey =
   | 'firstName' | 'lastName' | 'fullName'
   | 'email' | 'domain' | 'companyName'
   | 'title' | 'phone' | 'city' | 'linkedinUrl'
+
+type CompanyFieldKey = 'domain' | 'companyName' | 'phone' | 'employees'
+
+type FieldKey = PersonFieldKey | CompanyFieldKey
 
 interface FieldDef {
   key: FieldKey
@@ -20,7 +27,7 @@ interface FieldDef {
   hint?: string
 }
 
-const FIELDS: FieldDef[] = [
+const PEOPLE_FIELDS: FieldDef[] = [
   { key: 'firstName',   label: 'First Name',                required: true },
   { key: 'lastName',    label: 'Last Name',                 required: true },
   { key: 'fullName',    label: 'Full Name',                 hint: 'Auto-split into first/last' },
@@ -31,6 +38,13 @@ const FIELDS: FieldDef[] = [
   { key: 'phone',       label: 'Phone' },
   { key: 'city',        label: 'City' },
   { key: 'linkedinUrl', label: 'LinkedIn URL' },
+]
+
+const COMPANY_FIELDS: FieldDef[] = [
+  { key: 'domain',      label: 'Domain',       required: true },
+  { key: 'companyName', label: 'Company Name' },
+  { key: 'phone',       label: 'Phone' },
+  { key: 'employees',   label: 'Employees' },
 ]
 
 // --- CSV parser ---
@@ -62,42 +76,46 @@ function parseCSV(text: string): { headers: string[]; rows: string[][] } {
 }
 
 // --- Auto-map CSV headers to our fields ---
-function autoMap(headers: string[]): Record<FieldKey, string> {
-  const result = {} as Record<FieldKey, string>
+function autoMap(headers: string[], fields: FieldDef[]): Record<string, string> {
+  const result: Record<string, string> = {}
   const used = new Set<string>()
 
-  function match(key: FieldKey, tests: string[]) {
-    if (result[key]) return
+  const matchers: Record<string, string[]> = {
+    firstName:   ['first name', 'first_name', 'firstname', 'fname'],
+    lastName:    ['last name', 'last_name', 'lastname', 'lname'],
+    fullName:    ['full name', 'full_name', 'fullname', 'name'],
+    email:       ['email', 'e-mail', 'email address'],
+    domain:      ['domain', 'website', 'url'],
+    companyName: ['company', 'organization', 'org', 'employer', 'name'],
+    title:       ['title', 'job title', 'position', 'role'],
+    phone:       ['phone', 'mobile', 'cell', 'telephone'],
+    city:        ['city', 'location', 'town'],
+    linkedinUrl: ['linkedin', 'linkedin url', 'linkedin_url'],
+    employees:   ['employees', 'employee count', 'size', 'headcount'],
+  }
+
+  for (const field of fields) {
+    const tests = matchers[field.key]
+    if (!tests) continue
     for (const h of headers) {
       if (used.has(h)) continue
       const hl = h.toLowerCase()
       if (tests.some(t => hl === t || hl.includes(t))) {
-        result[key] = h
+        result[field.key] = h
         used.add(h)
-        return
+        break
       }
     }
   }
 
-  match('firstName',   ['first name', 'first_name', 'firstname', 'fname'])
-  match('lastName',    ['last name', 'last_name', 'lastname', 'lname'])
-  match('fullName',    ['full name', 'full_name', 'fullname', 'name'])
-  match('email',       ['email', 'e-mail', 'email address'])
-  match('domain',      ['domain', 'website', 'url'])
-  match('companyName', ['company', 'organization', 'org', 'employer'])
-  match('title',       ['title', 'job title', 'position', 'role'])
-  match('phone',       ['phone', 'mobile', 'cell', 'telephone'])
-  match('city',        ['city', 'location', 'town'])
-  match('linkedinUrl', ['linkedin', 'linkedin url', 'linkedin_url'])
-
   return result
 }
 
-// --- Build import objects from mapped rows ---
+// --- Build import objects from mapped rows (people mode) ---
 function buildImportPeople(
   rows: string[][],
   headers: string[],
-  mapping: Record<FieldKey, string>
+  mapping: Record<string, string>
 ): ImportPersonInput[] {
   function idx(col: string): number { return col ? headers.indexOf(col) : -1 }
   function get(row: string[], col: string): string {
@@ -143,14 +161,44 @@ function buildImportPeople(
     .filter(Boolean) as ImportPersonInput[]
 }
 
-export function ImportCSVDialog({ onClose, onImport }: ImportCSVDialogProps) {
-  const [step, setStep] = useState<'upload' | 'map'>('upload')
+// --- Build import objects from mapped rows (company mode) ---
+function buildImportCompanies(
+  rows: string[][],
+  headers: string[],
+  mapping: Record<string, string>
+): ImportCompanyInput[] {
+  function idx(col: string): number { return col ? headers.indexOf(col) : -1 }
+  function get(row: string[], col: string): string {
+    const i = idx(col)
+    return i >= 0 ? (row[i] ?? '').trim() : ''
+  }
+
+  return rows
+    .map(row => {
+      const domain = get(row, mapping.domain)
+      if (!domain) return null
+
+      return {
+        domain,
+        companyName: get(row, mapping.companyName) || undefined,
+        phone:       get(row, mapping.phone) || null,
+        employees:   get(row, mapping.employees) || undefined,
+      }
+    })
+    .filter(Boolean) as ImportCompanyInput[]
+}
+
+export function ImportCSVDialog({ onClose, onImportPeople, onImportCompanies }: ImportCSVDialogProps) {
+  const [importMode, setImportMode] = useState<ImportMode>('people')
+  const [step, setStep]     = useState<'upload' | 'map'>('upload')
   const [dragging, setDragging] = useState(false)
   const [parsed, setParsed] = useState<{ headers: string[]; rows: string[][] } | null>(null)
-  const [mapping, setMapping] = useState<Record<FieldKey, string>>({} as Record<FieldKey, string>)
+  const [mapping, setMapping] = useState<Record<string, string>>({})
   const [fileName, setFileName] = useState('')
-  const [error, setError] = useState('')
+  const [error, setError]   = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
+
+  const fields = importMode === 'people' ? PEOPLE_FIELDS : COMPANY_FIELDS
 
   function loadFile(file: File) {
     if (!file.name.endsWith('.csv') && file.type !== 'text/csv') {
@@ -165,7 +213,7 @@ export function ImportCSVDialog({ onClose, onImport }: ImportCSVDialogProps) {
       const result = parseCSV(text)
       if (result.headers.length === 0) { setError('CSV appears to be empty.'); return }
       setParsed(result)
-      setMapping(autoMap(result.headers))
+      setMapping(autoMap(result.headers, fields))
       setStep('map')
     }
     reader.readAsText(file)
@@ -176,25 +224,40 @@ export function ImportCSVDialog({ onClose, onImport }: ImportCSVDialogProps) {
     setDragging(false)
     const file = e.dataTransfer.files[0]
     if (file) loadFile(file)
-  }, [])
+  }, [importMode])
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (file) loadFile(file)
   }
 
+  function handleModeChange(mode: ImportMode) {
+    setImportMode(mode)
+    if (parsed) {
+      const newFields = mode === 'people' ? PEOPLE_FIELDS : COMPANY_FIELDS
+      setMapping(autoMap(parsed.headers, newFields))
+    }
+  }
+
   const previewRows = parsed?.rows.slice(0, 5) ?? []
 
-  const canImport = Boolean(
-    (mapping.firstName || mapping.fullName) &&
-    mapping.email
-  )
+  const canImport = importMode === 'people'
+    ? Boolean((mapping.firstName || mapping.fullName) && mapping.email)
+    : Boolean(mapping.domain)
+
+  const builtPeople    = parsed ? buildImportPeople(parsed.rows, parsed.headers, mapping) : []
+  const builtCompanies = parsed ? buildImportCompanies(parsed.rows, parsed.headers, mapping) : []
+  const importCount    = importMode === 'people' ? builtPeople.length : builtCompanies.length
 
   function handleImport() {
     if (!parsed) return
-    const people = buildImportPeople(parsed.rows, parsed.headers, mapping)
-    if (people.length === 0) { setError('No valid rows found (every row needs an email).'); return }
-    onImport(people)
+    if (importMode === 'people') {
+      if (builtPeople.length === 0) { setError('No valid rows found (every row needs an email).'); return }
+      onImportPeople(builtPeople)
+    } else {
+      if (builtCompanies.length === 0) { setError('No valid rows found (every row needs a domain).'); return }
+      onImportCompanies(builtCompanies)
+    }
   }
 
   return (
@@ -223,6 +286,31 @@ export function ImportCSVDialog({ onClose, onImport }: ImportCSVDialogProps) {
           </button>
         </div>
 
+        {/* Import mode toggle */}
+        <div className="px-5 pt-4 shrink-0">
+          <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted">
+            {(['people', 'companies'] as const).map(mode => (
+              <button
+                key={mode}
+                onClick={() => handleModeChange(mode)}
+                className={cn(
+                  'px-4 py-1.5 text-xs font-medium rounded-md transition-colors capitalize',
+                  importMode === mode
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {mode}
+              </button>
+            ))}
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-1.5">
+            {importMode === 'people'
+              ? 'Import specific people with email addresses.'
+              : 'Import companies by domain. People will be discovered during research.'}
+          </p>
+        </div>
+
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-5 py-4">
           {step === 'upload' && (
@@ -244,7 +332,11 @@ export function ImportCSVDialog({ onClose, onImport }: ImportCSVDialogProps) {
                 </div>
                 <div className="text-center">
                   <p className="text-sm font-medium text-foreground">Drop your CSV here or click to browse</p>
-                  <p className="text-xs text-muted-foreground mt-1">Headers in the first row. Needs at least email + name columns.</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {importMode === 'people'
+                      ? 'Headers in the first row. Needs at least email + name columns.'
+                      : 'Headers in the first row. Needs at least a domain column.'}
+                  </p>
                 </div>
               </div>
               <input ref={fileRef} type="file" accept=".csv,text/csv" onChange={handleFileChange} className="hidden" />
@@ -267,7 +359,7 @@ export function ImportCSVDialog({ onClose, onImport }: ImportCSVDialogProps) {
                 <span>·</span>
                 <span>{parsed.headers.length} columns</span>
                 <button
-                  onClick={() => { setStep('upload'); setParsed(null); setMapping({} as Record<FieldKey, string>) }}
+                  onClick={() => { setStep('upload'); setParsed(null); setMapping({}) }}
                   className="ml-auto text-blue-600 hover:underline"
                 >
                   Change file
@@ -277,11 +369,11 @@ export function ImportCSVDialog({ onClose, onImport }: ImportCSVDialogProps) {
               {/* Column mapping */}
               <div>
                 <p className="text-xs font-medium text-foreground mb-3">
-                  Map your CSV columns to lead fields.
+                  Map your CSV columns to {importMode === 'people' ? 'lead' : 'company'} fields.
                   <span className="text-muted-foreground font-normal ml-1">We auto-detected what we could.</span>
                 </p>
                 <div className="grid grid-cols-2 gap-2">
-                  {FIELDS.map(field => (
+                  {fields.map(field => (
                     <div key={field.key} className="flex flex-col gap-1">
                       <label className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
                         {field.label}
@@ -311,21 +403,36 @@ export function ImportCSVDialog({ onClose, onImport }: ImportCSVDialogProps) {
                     <table className="w-full text-xs">
                       <thead className="bg-muted border-b border-border">
                         <tr>
-                          {['Name', 'Email', 'Domain', 'Title', 'Company'].map(col => (
-                            <th key={col} className="px-3 py-2 text-left text-[10px] font-medium text-muted-foreground whitespace-nowrap">{col}</th>
-                          ))}
+                          {importMode === 'people'
+                            ? ['Name', 'Email', 'Domain', 'Title', 'Company'].map(col => (
+                                <th key={col} className="px-3 py-2 text-left text-[10px] font-medium text-muted-foreground whitespace-nowrap">{col}</th>
+                              ))
+                            : ['Domain', 'Company Name', 'Phone', 'Employees'].map(col => (
+                                <th key={col} className="px-3 py-2 text-left text-[10px] font-medium text-muted-foreground whitespace-nowrap">{col}</th>
+                              ))
+                          }
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border">
-                        {buildImportPeople(previewRows, parsed.headers, mapping).map((p, i) => (
-                          <tr key={i} className="hover:bg-muted/50">
-                            <td className="px-3 py-2 font-medium text-foreground whitespace-nowrap">{p.firstName} {p.lastName}</td>
-                            <td className="px-3 py-2 text-muted-foreground">{p.email}</td>
-                            <td className="px-3 py-2 text-muted-foreground">{p.domain}</td>
-                            <td className="px-3 py-2 text-muted-foreground">{p.title ?? '—'}</td>
-                            <td className="px-3 py-2 text-muted-foreground">{p.companyName ?? '—'}</td>
-                          </tr>
-                        ))}
+                        {importMode === 'people'
+                          ? buildImportPeople(previewRows, parsed.headers, mapping).map((p, i) => (
+                              <tr key={i} className="hover:bg-muted/50">
+                                <td className="px-3 py-2 font-medium text-foreground whitespace-nowrap">{p.firstName} {p.lastName}</td>
+                                <td className="px-3 py-2 text-muted-foreground">{p.email}</td>
+                                <td className="px-3 py-2 text-muted-foreground">{p.domain}</td>
+                                <td className="px-3 py-2 text-muted-foreground">{p.title ?? '—'}</td>
+                                <td className="px-3 py-2 text-muted-foreground">{p.companyName ?? '—'}</td>
+                              </tr>
+                            ))
+                          : buildImportCompanies(previewRows, parsed.headers, mapping).map((c, i) => (
+                              <tr key={i} className="hover:bg-muted/50">
+                                <td className="px-3 py-2 font-medium text-foreground whitespace-nowrap">{c.domain}</td>
+                                <td className="px-3 py-2 text-muted-foreground">{c.companyName ?? '—'}</td>
+                                <td className="px-3 py-2 text-muted-foreground">{c.phone ?? '—'}</td>
+                                <td className="px-3 py-2 text-muted-foreground">{c.employees ?? '—'}</td>
+                              </tr>
+                            ))
+                        }
                       </tbody>
                     </table>
                   </div>
@@ -345,7 +452,7 @@ export function ImportCSVDialog({ onClose, onImport }: ImportCSVDialogProps) {
         {step === 'map' && parsed && (
           <div className="px-5 py-3 border-t border-border flex items-center justify-between shrink-0">
             <p className="text-xs text-muted-foreground">
-              {buildImportPeople(parsed.rows, parsed.headers, mapping).length} of {parsed.rows.length} rows will be imported
+              {importCount} of {parsed.rows.length} rows will be imported
             </p>
             <button
               onClick={handleImport}
@@ -357,7 +464,7 @@ export function ImportCSVDialog({ onClose, onImport }: ImportCSVDialogProps) {
                   : 'bg-muted text-muted-foreground cursor-not-allowed'
               )}
             >
-              Import {parsed.rows.length} leads
+              Import {importCount} {importMode}
             </button>
           </div>
         )}

@@ -1,6 +1,6 @@
 namespace RadLeads.Api.Services;
 
-public record ExtractedPerson(string Name, string Title);
+public record ExtractedPerson(string Name, string Title, string? SourcePage);
 
 public record CompanySummaryResult(
     string Summary,

@@ -150,6 +150,47 @@ public class CompaniesController(AppDbContext db) : ControllerBase
 
     // ── helpers ──────────────────────────────────────────────────────────────
 
+    // Bulk import: companies-only (no people). Upserts by domain.
+    [HttpPost("import-companies")]
+    public async Task<IActionResult> ImportCompanies([FromBody] ImportCompanyInput[] inputs)
+    {
+        var affected = new List<Company>();
+
+        foreach (var input in inputs)
+        {
+            var domain = input.Domain.ToLowerInvariant();
+
+            var company = await db.Companies
+                .Include(o => o.People).ThenInclude(o => o.Emails)
+                .Include(o => o.People).ThenInclude(o => o.Campaigns)
+                .Include(o => o.GenericEmails)
+                .FirstOrDefaultAsync(o => o.Domain == domain);
+
+            if (company is null)
+            {
+                company = new Company
+                {
+                    Domain    = domain,
+                    Name      = input.CompanyName ?? domain,
+                    Phone     = input.Phone,
+                    Employees = input.Employees,
+                };
+                db.Companies.Add(company);
+            }
+            else
+            {
+                if (input.Phone is not null) company.Phone = input.Phone;
+                if (input.Employees is not null) company.Employees = input.Employees;
+                if (input.CompanyName is not null) company.Name = input.CompanyName;
+            }
+
+            affected.Add(company);
+        }
+
+        await db.SaveChangesAsync();
+        return Ok(affected.Select(ToDto));
+    }
+
     static CompanyDto ToDto(Company c) => new(
         c.Id,
         c.Domain,
@@ -157,6 +198,7 @@ public class CompaniesController(AppDbContext db) : ControllerBase
         c.Employees,
         c.Summary,
         c.RecentNews,
+        c.Phone,
         c.EnrichStatus,
         c.ResearchedAt,
         c.EnrichedAt,

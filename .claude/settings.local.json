@@ -20,7 +20,11 @@
       "Bash(xargs grep:*)",
       "Bash(dotnet sln:*)",
       "Bash(grep -v \"^\\\\s*//\")",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(cmd:*)",
+      "Bash(grep -E \"\\\\.\\(cs|tsx?|sql\\)$\")",
+      "Bash(npx vite:*)",
+      "Bash(ls -la /d/RadcoreAI/RadLeads/api/Controllers/*.cs)"
     ]
   }
 }

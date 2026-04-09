@@ -14,37 +14,46 @@ public sealed class PlaywrightScraperService(ILogger<PlaywrightScraperService> l
     : IScrapingService, IAsyncDisposable
 {
     private static readonly Regex KeywordPattern = new(
-        @"about|contact|team|leadership|service|solution|pricing|news|press|blog|career|company|location|office|faq|invest|partner",
+        @"about|contact|team|meet|leadership|service|solution|pricing|news|press|blog|career|company|location|office|faq|invest|partner",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     private static readonly Regex MeetingPattern = new(
         @"calendly\.com|hubspot\.com/meetings|tidycal\.com|savvycal\.com|wa\.me",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+    private static readonly Regex TelHrefPattern = new(
+        @"href=""tel:([+\d\s\-().]+)""",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    private static readonly Regex PhoneTextPattern = new(
+        @"(?<!\d)(\+?1?\s*[-.]?\s*\(?\d{3}\)?[\s.\-]?\d{3}[\s.\-]?\d{4})(?!\d)",
+        RegexOptions.Compiled);
+
     private static readonly (string Path, string Label)[] FallbackPaths =
     [
-        ("/about",       "About"),
-        ("/about-us",    "About Us"),
-        ("/team",        "Team"),
-        ("/leadership",  "Leadership"),
-        ("/contact",     "Contact"),
-        ("/contact-us",  "Contact Us"),
-        ("/services",    "Services"),
-        ("/solutions",   "Solutions"),
-        ("/pricing",     "Pricing"),
-        ("/news",        "News"),
-        ("/press",       "Press"),
-        ("/blog",        "Blog"),
-        ("/careers",     "Careers"),
-        ("/company",     "Company"),
-        ("/locations",   "Locations"),
-        ("/offices",     "Offices"),
-        ("/faq",         "FAQ"),
-        ("/investors",   "Investors"),
-        ("/partners",    "Partners"),
+        ("/about",            "About"),
+        ("/about-us",         "About Us"),
+        ("/team",             "Team"),
+        ("/meet-the-team",    "Meet The Team"),
+        ("/leadership",       "Leadership"),
+        ("/contact",          "Contact"),
+        ("/contact-us",       "Contact Us"),
+        ("/services",         "Services"),
+        ("/solutions",        "Solutions"),
+        ("/pricing",          "Pricing"),
+        ("/news",             "News"),
+        ("/press",            "Press"),
+        ("/blog",             "Blog"),
+        ("/careers",          "Careers"),
+        ("/company",          "Company"),
+        ("/locations",        "Locations"),
+        ("/offices",          "Offices"),
+        ("/faq",              "FAQ"),
+        ("/investors",        "Investors"),
+        ("/partners",         "Partners"),
     ];
 
-    private const int MaxPages    = 10;
+    private const int MaxPages    = 15;
     private const int PageDelayMs = 500;
 
     // Lazy-init — browser starts on first crawl request, stays alive for the process lifetime
@@ -98,6 +107,7 @@ public sealed class PlaywrightScraperService(ILogger<PlaywrightScraperService> l
         // ── 2. Fetch each page with Playwright ───────────────────────────────────
         var pages   = new List<CrawledPage>();
         string? meeting = null;
+        string? phone   = null;
 
         // Reuse one context for the whole crawl (same cookies/session if needed)
         await using var context = await browser.NewContextAsync(new BrowserNewContextOptions
@@ -122,6 +132,9 @@ public sealed class PlaywrightScraperService(ILogger<PlaywrightScraperService> l
                     if (m.Success) meeting = ExtractMeetingHref(html, m.Value);
                 }
 
+                if (phone is null)
+                    phone = ExtractPhone(html);
+
                 if (text.Length > 100)
                     pages.Add(new CrawledPage(url, label, text));
             }
@@ -131,7 +144,7 @@ public sealed class PlaywrightScraperService(ILogger<PlaywrightScraperService> l
             }
         }
 
-        return new CrawlResult(domain, pages, meeting);
+        return new CrawlResult(domain, pages, meeting, phone);
     }
 
     private static async Task<(string? Html, string? Text)> FetchPageAsync(
@@ -150,12 +163,32 @@ public sealed class PlaywrightScraperService(ILogger<PlaywrightScraperService> l
 
             var html = await page.ContentAsync();
 
-            // Strip noise then grab visible text
-            await page.EvaluateAsync(
-                "() => document.querySelectorAll('script,style,nav,footer,header,noscript,iframe,svg').forEach(el => el.remove())");
-
-            var text = await page.InnerTextAsync("body");
-            text = Regex.Replace(text, @"\s+", " ").Trim();
+            // Strip noise then convert DOM to Markdown so AI preserves heading/list structure
+            var text = await page.EvaluateAsync<string>("""
+                () => {
+                    document.querySelectorAll('script,style,nav,footer,header,noscript,iframe,svg').forEach(el => el.remove());
+                    function toMd(el) {
+                        let out = '';
+                        for (const node of el.childNodes) {
+                            if (node.nodeType === 3) {
+                                out += node.textContent.replace(/[ \t]+/g, ' ');
+                            } else if (node.nodeType === 1) {
+                                const tag = node.tagName.toLowerCase();
+                                const inner = node.textContent.trim();
+                                if (tag === 'h1') out += '\n# ' + inner + '\n';
+                                else if (tag === 'h2') out += '\n## ' + inner + '\n';
+                                else if (tag === 'h3') out += '\n### ' + inner + '\n';
+                                else if (/^h[456]$/.test(tag)) out += '\n#### ' + inner + '\n';
+                                else if (tag === 'li') out += '\n- ' + inner;
+                                else if (tag === 'p') { if (inner) out += '\n' + inner + '\n'; }
+                                else out += toMd(node);
+                            }
+                        }
+                        return out;
+                    }
+                    return toMd(document.body).replace(/\n{3,}/g, '\n\n').trim();
+                }
+                """);
 
             return (html, text);
         }
@@ -264,6 +297,21 @@ public sealed class PlaywrightScraperService(ILogger<PlaywrightScraperService> l
         }
         catch { return url; }
     }
+
+    private static string? ExtractPhone(string html)
+    {
+        // Priority 1: tel: href (highest confidence)
+        var telMatch = TelHrefPattern.Match(html);
+        if (telMatch.Success)
+            return NormalizePhone(telMatch.Groups[1].Value);
+
+        // Priority 2: visible phone number pattern
+        var textMatch = PhoneTextPattern.Match(html);
+        return textMatch.Success ? NormalizePhone(textMatch.Groups[1].Value) : null;
+    }
+
+    private static string NormalizePhone(string raw) =>
+        Regex.Replace(raw.Trim(), @"[^\d+]", "");
 
     private static string? ExtractMeetingHref(string html, string pattern)
     {

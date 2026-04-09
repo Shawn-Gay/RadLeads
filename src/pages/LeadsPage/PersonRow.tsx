@@ -1,15 +1,18 @@
+import { Phone, PhoneCall, Mail } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { SOURCE_STYLES, SOURCE_LABELS, STATUS_STYLES } from './constants'
-import type { LeadPerson, Campaign } from '@/types'
+import { SOURCE_STYLES, SOURCE_LABELS, STATUS_STYLES, CALL_OUTCOME_STYLES } from './constants'
+import type { LeadPerson, Campaign, CallLog } from '@/types'
 
 interface PersonRowProps {
   person: LeadPerson
   campaigns: Campaign[]
+  lastCall?: CallLog
   isSelected: boolean
   onSelect: () => void
+  onCall: () => void
 }
 
-export function PersonRow({ person, campaigns, isSelected, onSelect }: PersonRowProps) {
+export function PersonRow({ person, campaigns, lastCall, isSelected, onSelect, onCall }: PersonRowProps) {
   const primaryEmail    = person.emails.find(o => o.isPrimary) ?? person.emails[0]
   const personCampaigns = campaigns.filter(c => person.campaignIds.includes(c.id))
 
@@ -58,6 +61,53 @@ export function PersonRow({ person, campaigns, isSelected, onSelect }: PersonRow
           </>
         ) : (
           <span className="text-xs text-muted-foreground">—</span>
+        )}
+      </div>
+
+      {/* Phone + Call button */}
+      <div className="w-40 shrink-0 flex items-center gap-2">
+        {person.phone ? (
+          <>
+            <a
+              href={`tel:${person.phone}`}
+              onClick={e => e.stopPropagation()}
+              className="text-xs font-mono text-emerald-600 dark:text-emerald-400 font-semibold hover:text-emerald-700 dark:hover:text-emerald-300 hover:underline truncate transition-colors"
+              title={`Call ${person.phone}`}
+            >
+              {person.phone}
+            </a>
+            <button
+              onClick={e => { e.stopPropagation(); onCall() }}
+              title={`Call ${person.firstName}`}
+              className="shrink-0 flex items-center gap-1 text-[10px] font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 dark:bg-emerald-950 hover:bg-emerald-100 dark:hover:bg-emerald-900 px-2 py-1 rounded transition-colors"
+            >
+              <Phone className="h-3 w-3" /> Call
+            </button>
+          </>
+        ) : (
+          <span className="text-xs text-muted-foreground">—</span>
+        )}
+      </div>
+
+      {/* Call / Email status */}
+      <div className="w-32 shrink-0 flex flex-col gap-1">
+        {lastCall ? (
+          <div className="flex items-center gap-1">
+            <PhoneCall className="h-3 w-3 shrink-0" />
+            <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded-full', CALL_OUTCOME_STYLES[lastCall.outcome])}>
+              {lastCall.outcome}
+            </span>
+          </div>
+        ) : (
+          <span className="text-[10px] text-muted-foreground">No calls</span>
+        )}
+        {primaryEmail && (
+          <div className="flex items-center gap-1">
+            <Mail className="h-3 w-3 shrink-0 text-muted-foreground" />
+            <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded-full', STATUS_STYLES[primaryEmail.status])}>
+              {primaryEmail.status}
+            </span>
+          </div>
         )}
       </div>
 

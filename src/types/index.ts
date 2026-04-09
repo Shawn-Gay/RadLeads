@@ -1,4 +1,15 @@
 export type EmailSource = 'csv' | 'guessed' | 'scraped' | 'api'
+export type CallOutcome = 'Connected' | 'LeftVoicemail' | 'NoAnswer' | 'WrongNumber' | 'CallBack' | 'NotInterested' | 'Interested'
+
+export interface CallLog {
+  id: string
+  personId?: string
+  companyId?: string
+  calledPhone: string
+  outcome: CallOutcome
+  notes?: string
+  calledAt: string
+}
 export type EmailStatus = 'verified' | 'bounced' | 'unknown'
 export type EnrichStatus = 'not_enriched' | 'researching' | 'researched' | 'enriching' | 'enriched' | 'research_failed'
 export type CampaignStatus = 'active' | 'draft' | 'paused'
@@ -39,6 +50,7 @@ export interface Company {
   summary?: string
   genericEmails?: string[]
   recentNews?: string
+  phone?: string | null
   enrichStatus: EnrichStatus
   researchedAt?: string
   enrichedAt?: string
@@ -120,4 +132,11 @@ export interface ImportPersonInput {
   phone?: string | null
   city?: string
   linkedinUrl?: string
+}
+
+export interface ImportCompanyInput {
+  domain: string
+  companyName?: string
+  phone?: string | null
+  employees?: string
 }

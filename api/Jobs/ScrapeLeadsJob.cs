@@ -47,6 +47,8 @@ public class ScrapeLeadsJob(
                 {
                     company.EnrichStatus = EnrichStatus.Researched;
                     company.ResearchedAt = DateTimeOffset.UtcNow;
+                    if (result.Phone is not null && company.Phone is null)
+                        company.Phone = result.Phone;
                     SetResearch(db, company, r =>
                     {
                         r.RawText = result.CombinedText;

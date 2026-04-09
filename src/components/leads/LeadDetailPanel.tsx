@@ -1,7 +1,7 @@
-import { X, Copy, Check, ExternalLink, Globe, Sparkles } from 'lucide-react'
+import { X, Copy, Check, ExternalLink, Sparkles } from 'lucide-react'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
-import type { Company, LeadPerson, LeadEmail, Campaign, EmailSource, EmailStatus, EnrichStatus } from '@/types'
+import type { Company, LeadPerson, LeadEmail, Campaign, EmailSource, EmailStatus } from '@/types'
 
 interface PersonDetailPanelProps {
   company: Company
@@ -100,53 +100,14 @@ function InsightCard({ title, text, colorClass }: { title: string; text: string;
   )
 }
 
-// ─── Stage indicator ──────────────────────────────────────────────────────────
-
-const STAGES: { key: EnrichStatus[]; label: string }[] = [
-  { key: ['not_enriched'],              label: 'Imported' },
-  { key: ['researching', 'researched'], label: 'Researched' },
-  { key: ['enriching', 'enriched'],     label: 'Enriched' },
-]
-
-function PipelineStageBar({ status }: { status: EnrichStatus }) {
-  const activeIndex = STAGES.findIndex(s => s.key.includes(status))
-
-  return (
-    <div className="flex items-center gap-1 px-4 py-2.5 border-b border-border bg-muted/30">
-      {STAGES.map((stage, i) => {
-        const isDone    = i < activeIndex
-        const isActive  = i === activeIndex
-        const isPending = i > activeIndex
-        return (
-          <div key={stage.label} className="flex items-center gap-1 flex-1 min-w-0">
-            <div className={cn(
-              'flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full whitespace-nowrap',
-              isDone   && 'bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300',
-              isActive && 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300',
-              isPending && 'bg-muted text-muted-foreground',
-            )}>
-              {isDone && <span>✓</span>}
-              {stage.label}
-            </div>
-            {i < STAGES.length - 1 && (
-              <div className={cn('flex-1 h-px', isDone ? 'bg-emerald-300 dark:bg-emerald-700' : 'bg-border')} />
-            )}
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
 // ─── Panel ────────────────────────────────────────────────────────────────────
 
 export function PersonDetailPanel({ company, person, campaigns, onClose }: PersonDetailPanelProps) {
   const personCampaigns = campaigns.filter(c => person.campaignIds.includes(c.id))
   const initials = `${person.firstName[0] ?? ''}${person.lastName[0] ?? ''}`.toUpperCase()
 
-  const isResearched = company.enrichStatus === 'researched' || company.enrichStatus === 'enriching' || company.enrichStatus === 'enriched'
   const isEnriched   = company.enrichStatus === 'enriched'
-  const hasCSVEmails = person.emails.some(e => e.source === 'csv')
+  const isResearched = company.enrichStatus === 'researched' || company.enrichStatus === 'enriching' || isEnriched
 
   return (
     <aside className={cn(
@@ -173,42 +134,8 @@ export function PersonDetailPanel({ company, person, campaigns, onClose }: Perso
         </div>
       </div>
 
-      {/* Pipeline stage */}
-      <PipelineStageBar status={company.enrichStatus} />
-
       {/* Body */}
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
-
-        {/* Company */}
-        <Section title="Company">
-          <div className="space-y-1.5">
-            <InfoRow label="Domain" value={company.domain} />
-            <InfoRow label="Name" value={company.name} />
-            {company.employees && <InfoRow label="Team size" value={company.employees} />}
-          </div>
-        </Section>
-
-        {/* Research data — website summary + recent news */}
-        {isResearched && (company.summary || company.recentNews) && (
-          <Section title={<><Globe className="h-3 w-3" /> Research</>}>
-            <div className="space-y-2">
-              {company.summary && (
-                <InsightCard
-                  title="Company Summary"
-                  text={company.summary}
-                  colorClass="bg-sky-50 dark:bg-sky-950 text-sky-800 dark:text-sky-300"
-                />
-              )}
-              {company.recentNews && (
-                <InsightCard
-                  title="Recent News"
-                  text={company.recentNews}
-                  colorClass="bg-muted text-foreground"
-                />
-              )}
-            </div>
-          </Section>
-        )}
 
         {/* Contact */}
         <Section title="Contact">
@@ -244,11 +171,6 @@ export function PersonDetailPanel({ company, person, campaigns, onClose }: Perso
               {person.emails.map(email => (
                 <EmailRow key={email.address} email={email} />
               ))}
-              {hasCSVEmails && !isEnriched && (
-                <p className="text-[10px] text-muted-foreground px-1 pt-0.5">
-                  Run <span className="font-semibold">Enrich</span> to generate and verify additional email combinations.
-                </p>
-              )}
             </div>
           ) : (
             <p className="text-xs text-muted-foreground">
@@ -258,20 +180,6 @@ export function PersonDetailPanel({ company, person, campaigns, onClose }: Perso
             </p>
           )}
         </Section>
-
-        {/* Generic company emails — only after enrich */}
-        {isEnriched && company.genericEmails && company.genericEmails.length > 0 && (
-          <Section title="Company Emails">
-            <div className="space-y-1">
-              {company.genericEmails.map(e => (
-                <div key={e} className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground flex-1">{e}</span>
-                  <CopyButton text={e} />
-                </div>
-              ))}
-            </div>
-          </Section>
-        )}
 
         {/* Content tokens — only after enrich */}
         {isEnriched && (person.icebreaker || person.painPoint) && (

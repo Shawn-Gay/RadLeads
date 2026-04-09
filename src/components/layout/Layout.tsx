@@ -9,6 +9,7 @@ import {
   Zap,
   Inbox,
   Server,
+  Settings,
   Sun,
   Moon,
   Menu,
@@ -21,6 +22,7 @@ const navItems = [
   { to: "/leads", label: "Leads", icon: Users },
   { to: "/inbox", label: "Inbox", icon: Inbox },
   { to: "/accounts", label: "Accounts", icon: Server },
+  { to: "/settings", label: "Settings", icon: Settings },
 ]
 
 export function Layout() {

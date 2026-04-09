@@ -1,4 +1,4 @@
-import type { EnrichStatus, EmailSource, EmailStatus } from '@/types'
+import type { EnrichStatus, EmailSource, EmailStatus, CallOutcome } from '@/types'
 
 export const ENRICH_CONFIG: Record<EnrichStatus, { label: string; cls: string; spin?: boolean }> = {
   not_enriched: { label: 'Not Started',  cls: 'bg-muted text-muted-foreground' },
@@ -26,6 +26,16 @@ export const STATUS_STYLES: Record<EmailStatus, string> = {
   unknown:  'bg-muted text-muted-foreground',
 }
 
+export const CALL_OUTCOME_STYLES: Record<CallOutcome, string> = {
+  Connected:      'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400',
+  LeftVoicemail:  'bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-400',
+  NoAnswer:       'bg-muted text-muted-foreground',
+  WrongNumber:    'bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400',
+  CallBack:       'bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400',
+  NotInterested:  'bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400',
+  Interested:     'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400',
+}
+
 export type TabKey = 'all' | 'not_enriched' | 'researched' | 'enriched' | 'research_failed' | 'in_campaign'
 
 export const TABS: { key: TabKey; label: string }[] = [
@@ -38,4 +48,4 @@ export const TABS: { key: TabKey; label: string }[] = [
 ]
 
 // Grid column layout for company header + company rows
-export const COMPANY_GRID = 'grid-cols-[32px_32px_1fr_112px_144px_96px_72px]'
+export const COMPANY_GRID = 'grid-cols-[32px_32px_1fr_112px_144px_72px]'

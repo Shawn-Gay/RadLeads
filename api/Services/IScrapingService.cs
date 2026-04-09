@@ -2,11 +2,11 @@ namespace RadLeads.Api.Services;
 
 public record CrawledPage(string Url, string Label, string Text);
 
-public record CrawlResult(string Domain, List<CrawledPage> Pages, string? MeetingLink)
+public record CrawlResult(string Domain, List<CrawledPage> Pages, string? MeetingLink, string? Phone)
 {
-    // Cap each page so later pages (About, Team) aren't truncated out by a long Homepage.
-    // 10 pages × 1 500 chars = 15 000 chars max — well within the AI's 14 000-char window.
-    private const int CharsPerPage = 4_000;
+    // Cap each page so later pages (Team, About) aren't truncated out by a long Homepage.
+    // 15 pages × 5 000 chars = 75 000 chars max, truncated to 60 000 in the AI call.
+    private const int CharsPerPage = 5_000;
 
     public string CombinedText => string.Join("\n\n---\n\n",
         Pages.Select(p =>

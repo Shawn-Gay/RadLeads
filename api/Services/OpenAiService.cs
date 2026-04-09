@@ -15,7 +15,7 @@ public class OpenAiService(IConfiguration config, ILogger<OpenAiService> logger)
     };
 
     // Max chars of crawled text sent to AI — per-page cap in CombinedText already limits input
-    private const int MaxTextChars = 40_000;
+    private const int MaxTextChars = 60_000;
 
     // Returns null (and logs a warning) when the API key is not configured.
     private ChatClient? GetChatClient()
@@ -116,7 +116,7 @@ public class OpenAiService(IConfiguration config, ILogger<OpenAiService> logger)
         var user = new UserChatMessage($$"""
             Company domain: {{domain}}
 
-            Website content:
+            Website content (each section is labeled [PageName]):
             {{truncated}}
 
             Return JSON matching this exact schema (use empty arrays, not null, for list fields):
@@ -124,9 +124,15 @@ public class OpenAiService(IConfiguration config, ILogger<OpenAiService> logger)
               "summary": "2-3 sentence description of what the company does and who they serve",
               "recentNews": "Recent news, funding, product launches, or announcements (null if none found)",
               "painPoints": ["pain point 1", "pain point 2"],
-              "keyPeople": [{"name": "Full Name", "title": "Job Title"}],
+              "keyPeople": [{"name": "Full Name", "title": "Job Title", "sourcePage": "PageName"}],
               "recentEvents": ["event 1", "event 2"]
             }
+
+            IMPORTANT rules for keyPeople:
+            - Only extract people who are actual employees or owners of this company (founders, executives, managers, team members).
+            - Set "sourcePage" to the exact [PageName] label where you found this person.
+            - NEVER extract names from News, Blog, Press, or media sections — those mention journalists, clients, or quoted outsiders, not company staff.
+            - If no staff names appear on team/about/leadership/contact pages, return an empty array.
             """);
 
         try
