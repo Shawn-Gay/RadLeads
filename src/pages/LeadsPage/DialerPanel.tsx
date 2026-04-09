@@ -6,7 +6,8 @@ import { fillTokens, CALL_TOKEN_HINTS } from '@/lib/tokens'
 import { logCall } from '@/services/callLogs'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
 import { CALL_OUTCOME_STYLES } from './constants'
-import type { Company, LeadPerson, CallOutcome, CallLog, TokenData } from '@/types'
+import type { Company, LeadPerson, CallOutcome, CallLog } from '@/types'
+import type { TokenData } from '@/lib/tokens'
 
 interface DialerPanelProps {
   company: Company

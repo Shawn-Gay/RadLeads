@@ -52,7 +52,10 @@ export function SettingsPage() {
 
   function selectAll() {
     const allOn = Object.values(options).every(Boolean)
-    const next = Object.fromEntries(Object.keys(options).map(k => [k, !allOn])) as PurgeOptions
+    const next = (Object.keys(options) as (keyof PurgeOptions)[]).reduce(
+      (acc, k) => ({ ...acc, [k]: !allOn }),
+      {} as PurgeOptions,
+    )
     setOptions(next)
   }
 
