@@ -15,8 +15,9 @@ type PersonFieldKey =
   | 'firstName' | 'lastName' | 'fullName'
   | 'email' | 'domain' | 'companyName'
   | 'title' | 'phone' | 'city' | 'linkedinUrl'
+  | 'callStatus'
 
-type CompanyFieldKey = 'domain' | 'companyName' | 'phone' | 'employees'
+type CompanyFieldKey = 'domain' | 'companyName' | 'phone' | 'employees' | 'callStatus'
 
 type FieldKey = PersonFieldKey | CompanyFieldKey
 
@@ -38,6 +39,7 @@ const PEOPLE_FIELDS: FieldDef[] = [
   { key: 'phone',       label: 'Phone' },
   { key: 'city',        label: 'City' },
   { key: 'linkedinUrl', label: 'LinkedIn URL' },
+  { key: 'callStatus',  label: 'Call Status',  hint: 'e.g. Connected, No Answer, Voicemail' },
 ]
 
 const COMPANY_FIELDS: FieldDef[] = [
@@ -45,6 +47,7 @@ const COMPANY_FIELDS: FieldDef[] = [
   { key: 'companyName', label: 'Company Name' },
   { key: 'phone',       label: 'Phone' },
   { key: 'employees',   label: 'Employees' },
+  { key: 'callStatus',  label: 'Call Status',  hint: 'e.g. Connected, No Answer, Voicemail' },
 ]
 
 // --- CSV parser ---
@@ -92,6 +95,7 @@ function autoMap(headers: string[], fields: FieldDef[]): Record<string, string> 
     city:        ['city', 'location', 'town'],
     linkedinUrl: ['linkedin', 'linkedin url', 'linkedin_url'],
     employees:   ['employees', 'employee count', 'size', 'headcount'],
+    callStatus:  ['call status', 'call_status', 'callstatus', 'call outcome', 'call_outcome', 'disposition', 'status'],
   }
 
   for (const field of fields) {
@@ -146,6 +150,8 @@ function buildImportPeople(
       const city        = get(row, mapping.city) || undefined
       const linkedinUrl = get(row, mapping.linkedinUrl) || undefined
 
+      const callStatus = get(row, mapping.callStatus) || null
+
       return {
         firstName: firstName || 'Unknown',
         lastName,
@@ -156,6 +162,7 @@ function buildImportPeople(
         phone,
         city,
         linkedinUrl,
+        callStatus,
       }
     })
     .filter(Boolean) as ImportPersonInput[]
@@ -183,6 +190,7 @@ function buildImportCompanies(
         companyName: get(row, mapping.companyName) || undefined,
         phone:       get(row, mapping.phone) || null,
         employees:   get(row, mapping.employees) || undefined,
+        callStatus:  get(row, mapping.callStatus) || null,
       }
     })
     .filter(Boolean) as ImportCompanyInput[]

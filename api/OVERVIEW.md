@@ -219,3 +219,8 @@ Named `HttpClient("scraper")` — custom User-Agent, 15s timeout — used exclus
 | `EmailAccountsController` | `/api/emailaccounts` | CRUD + status management |
 | `WarmupController` | `/api/warmup` | Stats, pause/resume |
 | `TrackingController` | `/track` | Open pixel, click redirect |
+
+
+src/services/ai.ts
+src/services/inbox.ts
+

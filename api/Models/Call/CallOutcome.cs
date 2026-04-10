@@ -4,6 +4,7 @@ public enum CallOutcome
 {
     Connected,
     LeftVoicemail,
+    LeftMessage,
     NoAnswer,
     WrongNumber,
     CallBack,

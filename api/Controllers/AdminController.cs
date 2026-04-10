@@ -27,6 +27,10 @@ public class AdminController(AppDbContext db) : ControllerBase
 
         // Order matters: children before parents to respect FK constraints
 
+        // CallLogs reference both Companies and LeadPersons — must go first
+        if (request.CallLogs || request.Companies)
+            deleted["callLogs"] = await db.CallLogs.ExecuteDeleteAsync();
+
         if (request.Companies)
         {
             deleted["leadEmails"] = await db.LeadEmails.ExecuteDeleteAsync();
@@ -42,9 +46,6 @@ public class AdminController(AppDbContext db) : ControllerBase
             deleted["campaignSteps"] = await db.CampaignSteps.ExecuteDeleteAsync();
             deleted["campaigns"] = await db.Campaigns.ExecuteDeleteAsync();
         }
-
-        if (request.CallLogs)
-            deleted["callLogs"] = await db.CallLogs.ExecuteDeleteAsync();
 
         if (request.Inbox)
             deleted["inboxReplies"] = await db.InboxReplies.ExecuteDeleteAsync();

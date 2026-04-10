@@ -18,6 +18,7 @@ public record LeadPersonDto(
     string? City,
     string? Icebreaker,
     string? PainPoint,
+    string? SourcePage,
     List<LeadEmailDto> Emails,
     List<Guid> CampaignIds);
 
@@ -32,6 +33,8 @@ public record CompanyDto(
     EnrichStatus EnrichStatus,
     DateTimeOffset? ResearchedAt,
     DateTimeOffset? EnrichedAt,
+    string? MeetingLink,
+    int PagesCrawledCount,
     List<string> GenericEmails,
     List<LeadPersonDto> People);
 
@@ -44,10 +47,12 @@ public record ImportPersonInput(
     string Email,
     string? Phone,
     string? City,
-    string? LinkedinUrl);
+    string? LinkedinUrl,
+    string? CallStatus);
 
 public record ImportCompanyInput(
     string Domain,
     string? CompanyName,
     string? Phone,
-    string? Employees);
+    string? Employees,
+    string? CallStatus);

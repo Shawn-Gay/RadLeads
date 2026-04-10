@@ -26,9 +26,21 @@ export const STATUS_STYLES: Record<EmailStatus, string> = {
   unknown:  'bg-muted text-muted-foreground',
 }
 
+export const CALL_OUTCOME_LABELS: Record<CallOutcome, string> = {
+  Connected:      'Connected',
+  LeftVoicemail:  'Left Voicemail',
+  LeftMessage:    'Left Message',
+  NoAnswer:       'No Answer',
+  WrongNumber:    'Wrong Number',
+  CallBack:       'Call Back',
+  NotInterested:  'Not Interested',
+  Interested:     'Interested',
+}
+
 export const CALL_OUTCOME_STYLES: Record<CallOutcome, string> = {
   Connected:      'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400',
   LeftVoicemail:  'bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-400',
+  LeftMessage:    'bg-sky-50 dark:bg-sky-950 text-sky-700 dark:text-sky-400',
   NoAnswer:       'bg-muted text-muted-foreground',
   WrongNumber:    'bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400',
   CallBack:       'bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400',
@@ -48,4 +60,4 @@ export const TABS: { key: TabKey; label: string }[] = [
 ]
 
 // Grid column layout for company header + company rows
-export const COMPANY_GRID = 'grid-cols-[32px_32px_1fr_112px_144px_72px]'
+export const COMPANY_GRID = 'grid-cols-[32px_32px_1fr_80px_120px_144px_72px]'

@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
 import confetti from 'canvas-confetti'
-import { Phone, ArrowLeft, ChevronLeft, ChevronRight, ExternalLink, Pencil, Eye, Copy, PhoneCall, Snowflake } from 'lucide-react'
+import { Phone, ArrowLeft, ChevronLeft, ChevronRight, ExternalLink, Pencil, Eye, Copy, PhoneCall, Snowflake, Calendar } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { fillTokens, CALL_TOKEN_HINTS } from '@/lib/tokens'
 import { logCall } from '@/services/callLogs'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
-import { CALL_OUTCOME_STYLES } from './constants'
+import { CALL_OUTCOME_STYLES, CALL_OUTCOME_LABELS } from './constants'
 import type { Company, LeadPerson, CallOutcome, CallLog } from '@/types'
 import type { TokenData } from '@/lib/tokens'
 
@@ -35,6 +35,7 @@ const OUTCOMES: OutcomeOption[] = [
   { value: 'Interested',    label: 'Interested!',    color: 'bg-blue-100 text-blue-700 border-blue-200 hover:bg-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800' },
   { value: 'CallBack',      label: 'Call Back',      color: 'bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800' },
   { value: 'LeftVoicemail', label: 'Left Voicemail', color: 'bg-violet-100 text-violet-700 border-violet-200 hover:bg-violet-200 dark:bg-violet-950 dark:text-violet-300 dark:border-violet-800' },
+  { value: 'LeftMessage',   label: 'Left Message',   color: 'bg-sky-100 text-sky-700 border-sky-200 hover:bg-sky-200 dark:bg-sky-950 dark:text-sky-300 dark:border-sky-800' },
   { value: 'NoAnswer',      label: 'No Answer',      color: 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700' },
   { value: 'NotInterested', label: 'Not Interested', color: 'bg-red-100 text-red-600 border-red-200 hover:bg-red-200 dark:bg-red-950 dark:text-red-400 dark:border-red-800' },
   { value: 'WrongNumber',   label: 'Wrong Number',   color: 'bg-orange-100 text-orange-600 border-orange-200 hover:bg-orange-200 dark:bg-orange-950 dark:text-orange-400 dark:border-orange-800' },
@@ -209,6 +210,20 @@ export function DialerPanel({ company, index, total, initialPersonId, callLogs, 
                 <p className="text-xs text-muted-foreground leading-relaxed mb-3">{company.summary}</p>
               )}
 
+              {/* Meeting link */}
+              {company.meetingLink && (
+                <a
+                  href={company.meetingLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 mb-3 px-4 py-2.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900 transition-colors"
+                >
+                  <Calendar className="h-4 w-4" />
+                  <span className="text-xs font-semibold">Book Meeting</span>
+                  <ExternalLink className="h-3 w-3 ml-auto" />
+                </a>
+              )}
+
               {/* Company phone */}
               {company.phone && (
                 <div className="flex items-center justify-between bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 rounded-lg px-4 py-3">
@@ -344,7 +359,7 @@ export function DialerPanel({ company, index, total, initialPersonId, callLogs, 
                     <div key={log.id} className="flex items-center gap-2 text-xs">
                       <PhoneCall className="h-3 w-3 shrink-0 text-muted-foreground" />
                       <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded-full', CALL_OUTCOME_STYLES[log.outcome])}>
-                        {log.outcome}
+                        {CALL_OUTCOME_LABELS[log.outcome]}
                       </span>
                       <span className="text-muted-foreground font-mono text-[10px]">{log.calledPhone}</span>
                       <span className="text-muted-foreground text-[10px]">

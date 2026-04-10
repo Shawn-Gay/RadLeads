@@ -91,7 +91,7 @@ public class SummarizeLeadsJob(
 
         foreach (var extracted in keyPeople)
         {
-            var (first, last) = SplitName(extracted.Name);
+            var (first, last) = EmailPatternHelper.SplitName(extracted.Name);
             if (string.IsNullOrEmpty(first)) continue;
 
             var fullNameKey = $"{first} {last}".ToLowerInvariant().Trim();
@@ -99,52 +99,15 @@ public class SummarizeLeadsJob(
 
             var person = new LeadPerson
             {
-                FirstName  = Capitalize(first),
-                LastName   = Capitalize(last),
+                FirstName  = EmailPatternHelper.Capitalize(first),
+                LastName   = EmailPatternHelper.Capitalize(last),
                 Title      = extracted.Title,
                 SourcePage = extracted.SourcePage,
                 Company    = company,
-                Emails     = GuessEmails(first, last, company.Domain),
+                Emails     = EmailPatternHelper.GuessEmails(first, last, company.Domain),
             };
 
             db.LeadPersons.Add(person);
         }
-    }
-
-    private static (string first, string last) SplitName(string fullName)
-    {
-        var parts = fullName.Trim().Split(' ', 2);
-        var first = parts[0].ToLowerInvariant();
-        var last  = parts.Length > 1
-            ? parts[1].ToLowerInvariant().Replace(" ", "")
-            : string.Empty;
-        return (first, last);
-    }
-
-    private static string Capitalize(string s) =>
-        string.IsNullOrEmpty(s) ? s : char.ToUpperInvariant(s[0]) + s[1..];
-
-    private static List<LeadEmail> GuessEmails(string first, string last, string domain)
-    {
-        var addresses = string.IsNullOrEmpty(last)
-            ? [$"{first}@{domain}"]
-            : (string[])
-            [
-                $"{first}@{domain}",
-                $"{first}.{last}@{domain}",
-                $"{first[0]}{last}@{domain}",
-                $"{first[0]}.{last}@{domain}",
-            ];
-
-        return addresses
-            .Distinct()
-            .Select((a, i) => new LeadEmail
-            {
-                Address   = a,
-                Source    = EmailSource.Guessed,
-                IsPrimary = i == 0,
-                Status    = EmailStatus.Unknown,
-            })
-            .ToList();
     }
 }

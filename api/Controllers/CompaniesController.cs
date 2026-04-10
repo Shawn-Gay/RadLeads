@@ -17,6 +17,7 @@ public class CompaniesController(AppDbContext db) : ControllerBase
             .Include(o => o.People).ThenInclude(o => o.Emails)
             .Include(o => o.People).ThenInclude(o => o.Campaigns)
             .Include(o => o.GenericEmails)
+            .Include(o => o.Research)
             .ToListAsync();
         return Ok(companies.Select(ToDto));
     }
@@ -28,6 +29,7 @@ public class CompaniesController(AppDbContext db) : ControllerBase
             .Include(o => o.People).ThenInclude(o => o.Emails)
             .Include(o => o.People).ThenInclude(o => o.Campaigns)
             .Include(o => o.GenericEmails)
+            .Include(o => o.Research)
             .FirstOrDefaultAsync(o => o.Id == id);
         return company is null ? NotFound() : Ok(ToDto(company));
     }
@@ -85,6 +87,19 @@ public class CompaniesController(AppDbContext db) : ControllerBase
                 };
                 person.Emails.Add(email);
                 company.People.Add(person);
+
+                if (!string.IsNullOrWhiteSpace(input.CallStatus))
+                {
+                    var outcome = ParseCallOutcome(input.CallStatus);
+                    if (outcome.HasValue)
+                        db.CallLogs.Add(new CallLog
+                        {
+                            CalledPhone = input.Phone ?? string.Empty,
+                            Outcome     = outcome.Value,
+                            Person      = person,
+                            Company     = company,
+                        });
+                }
             }
 
             affected.Add(company);
@@ -184,11 +199,45 @@ public class CompaniesController(AppDbContext db) : ControllerBase
                 if (input.CompanyName is not null) company.Name = input.CompanyName;
             }
 
+            if (!string.IsNullOrWhiteSpace(input.CallStatus))
+            {
+                var outcome = ParseCallOutcome(input.CallStatus);
+                if (outcome.HasValue)
+                    db.CallLogs.Add(new CallLog
+                    {
+                        CalledPhone = input.Phone ?? string.Empty,
+                        Outcome     = outcome.Value,
+                        Company     = company,
+                    });
+            }
+
             affected.Add(company);
         }
 
         await db.SaveChangesAsync();
         return Ok(affected.Select(ToDto));
+    }
+
+    static CallOutcome? ParseCallOutcome(string raw) =>
+        raw.ToLowerInvariant().Replace(" ", "").Replace("-", "").Replace("_", "") switch
+        {
+            "connected" or "answered" or "answer"      => CallOutcome.Connected,
+            "leftvoicemail" or "voicemail" or "vm"     => CallOutcome.LeftVoicemail,
+            "leftmessage" or "lm" or "messageleft" or "receptionistmessage" => CallOutcome.LeftMessage,
+            "noanswer" or "na" or "noresponse"         => CallOutcome.NoAnswer,
+            "wrongnumber" or "wn"                      => CallOutcome.WrongNumber,
+            "callback" or "callbackrequested" or "cb"  => CallOutcome.CallBack,
+            "notinterested" or "ni" or "dnc" or "donotcall" => CallOutcome.NotInterested,
+            "interested"                               => CallOutcome.Interested,
+            _ => (CallOutcome?)null,
+        };
+
+    static int CountPagesCrawled(Company c)
+    {
+        var json = c.Research?.PagesCrawledJson;
+        if (string.IsNullOrEmpty(json)) return 0;
+        try { return System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(json).GetArrayLength(); }
+        catch { return 0; }
     }
 
     static CompanyDto ToDto(Company c) => new(
@@ -202,6 +251,8 @@ public class CompaniesController(AppDbContext db) : ControllerBase
         c.EnrichStatus,
         c.ResearchedAt,
         c.EnrichedAt,
+        c.Research?.MeetingLink,
+        CountPagesCrawled(c),
         c.GenericEmails.Select(o => o.Email).ToList(),
         c.People.Select(p => new LeadPersonDto(
             p.Id,
@@ -213,6 +264,7 @@ public class CompaniesController(AppDbContext db) : ControllerBase
             p.City,
             p.Icebreaker,
             p.PainPoint,
+            p.SourcePage,
             p.Emails.Select(e => new LeadEmailDto(e.Address, e.Source, e.IsPrimary, e.Status)).ToList(),
             p.Campaigns.Select(campaign => campaign.Id).ToList()
         )).ToList()

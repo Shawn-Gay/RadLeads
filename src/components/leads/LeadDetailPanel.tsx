@@ -1,4 +1,4 @@
-import { X, Copy, Check, ExternalLink, Sparkles } from 'lucide-react'
+import { X, Copy, Check, ExternalLink, Sparkles, MapPin, Mail } from 'lucide-react'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import type { Company, LeadPerson, LeadEmail, Campaign, EmailSource, EmailStatus } from '@/types'
@@ -140,6 +140,15 @@ export function PersonDetailPanel({ company, person, campaigns, onClose }: Perso
         {/* Contact */}
         <Section title="Contact">
           <div className="space-y-1.5">
+            {person.sourcePage && (
+              <div className="flex items-start gap-2 text-sm">
+                <span className="w-20 shrink-0 text-muted-foreground text-xs pt-0.5">Found on</span>
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-teal-700 dark:text-teal-400">
+                  <MapPin className="h-3 w-3" />
+                  {person.sourcePage} page
+                </span>
+              </div>
+            )}
             {person.city && <InfoRow label="City" value={person.city} />}
             {person.phone && (
               <div className="flex items-start gap-2">
@@ -180,6 +189,20 @@ export function PersonDetailPanel({ company, person, campaigns, onClose }: Perso
             </p>
           )}
         </Section>
+
+        {/* Generic company emails — fallback contacts */}
+        {company.genericEmails && company.genericEmails.length > 0 && (
+          <Section title={<><Mail className="h-3 w-3" /> Company Emails</>}>
+            <div className="space-y-1">
+              {company.genericEmails.map(email => (
+                <div key={email} className="flex items-center gap-2 px-2.5 py-1.5 rounded-md border border-border bg-muted/30 text-xs">
+                  <span className="flex-1 text-foreground truncate">{email}</span>
+                  <CopyButton text={email} />
+                </div>
+              ))}
+            </div>
+          </Section>
+        )}
 
         {/* Content tokens — only after enrich */}
         {isEnriched && (person.icebreaker || person.painPoint) && (

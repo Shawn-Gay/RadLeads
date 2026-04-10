@@ -107,6 +107,7 @@ export function LeadsPage() {
               </div>
               <div className="text-xs font-medium text-muted-foreground pl-1">Domain / Company</div>
               <div className="text-xs font-medium text-muted-foreground">People</div>
+              <div className="text-xs font-medium text-muted-foreground">Last Call</div>
               <div className="text-xs font-medium text-muted-foreground">Stage</div>
               <div />
             </div>

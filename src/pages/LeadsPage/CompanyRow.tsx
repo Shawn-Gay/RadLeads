@@ -1,6 +1,6 @@
-import { ChevronRight, Globe, Sparkles, RefreshCw, Loader2, ExternalLink, Phone, PhoneCall } from 'lucide-react'
+import { ChevronRight, Globe, Sparkles, RefreshCw, Loader2, ExternalLink, Phone, PhoneCall, Calendar, FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { COMPANY_GRID, CALL_OUTCOME_STYLES } from './constants'
+import { COMPANY_GRID, CALL_OUTCOME_STYLES, CALL_OUTCOME_LABELS } from './constants'
 import { EnrichBadge } from './EnrichBadge'
 import { PersonRow } from './PersonRow'
 import type { Company, Campaign, CallLog, EnrichStatus } from '@/types'
@@ -97,6 +97,22 @@ export function CompanyRow({
           </span>
         </div>
 
+        {/* Last call outcome */}
+        <div>
+          {companyCallLogs.length > 0 ? (() => {
+            const latest = companyCallLogs.reduce((a, b) =>
+              new Date(a.calledAt) > new Date(b.calledAt) ? a : b
+            )
+            return (
+              <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded-full', CALL_OUTCOME_STYLES[latest.outcome])}>
+                {CALL_OUTCOME_LABELS[latest.outcome]}
+              </span>
+            )
+          })() : (
+            <span className="text-[10px] text-muted-foreground">—</span>
+          )}
+        </div>
+
         {/* Stage badge */}
         <div>
           <EnrichBadge status={company.enrichStatus} />
@@ -145,7 +161,7 @@ export function CompanyRow({
       {/* Expanded: company details + people */}
       {isExpanded && (() => {
         const activeIndex = PIPELINE_STAGES.findIndex(o => o.key.includes(company.enrichStatus))
-        const hasDetails = company.summary || company.recentNews || companyCallLogs.length > 0
+        const hasDetails = company.summary || company.recentNews || companyCallLogs.length > 0 || company.meetingLink || company.pagesCrawledCount > 0
 
         return (
           <div className="border-t border-border/60 bg-muted/10">
@@ -190,6 +206,35 @@ export function CompanyRow({
                 })}
               </div>
 
+              {/* Quick-info chips */}
+              {(company.meetingLink || company.pagesCrawledCount > 0) && (
+                <div className="flex items-center gap-3 mb-4 flex-wrap">
+                  {company.meetingLink && (
+                    <a
+                      href={company.meetingLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={e => e.stopPropagation()}
+                      className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900 transition-colors"
+                      title="Book a meeting directly"
+                    >
+                      <Calendar className="h-3 w-3" />
+                      Book Meeting
+                      <ExternalLink className="h-2.5 w-2.5" />
+                    </a>
+                  )}
+                  {company.pagesCrawledCount > 0 && (
+                    <span
+                      className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-full bg-muted text-muted-foreground"
+                      title={`${company.pagesCrawledCount} pages were crawled from this company's website`}
+                    >
+                      <FileText className="h-3 w-3" />
+                      {company.pagesCrawledCount} pages crawled
+                    </span>
+                  )}
+                </div>
+              )}
+
               {/* Content cards row */}
               {hasDetails && (
                 <div className="flex gap-3 flex-wrap">
@@ -229,7 +274,7 @@ export function CompanyRow({
                         {companyCallLogs.slice(0, 4).map(log => (
                           <div key={log.id} className="flex items-center gap-2">
                             <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded-full leading-none', CALL_OUTCOME_STYLES[log.outcome])}>
-                              {log.outcome}
+                              {CALL_OUTCOME_LABELS[log.outcome]}
                             </span>
                             <span className="text-muted-foreground text-[10px]">
                               {new Date(log.calledAt).toLocaleDateString()}

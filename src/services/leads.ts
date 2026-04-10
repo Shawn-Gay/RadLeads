@@ -23,6 +23,8 @@ function mapCompany(raw: any): Company {
     enrichStatus: enrichStatusMap[raw.enrichStatus] ?? 'not_enriched',
     researchedAt: raw.researchedAt ?? undefined,
     enrichedAt:   raw.enrichedAt ?? undefined,
+    meetingLink:       raw.meetingLink ?? undefined,
+    pagesCrawledCount: raw.pagesCrawledCount ?? 0,
     genericEmails: raw.genericEmails ?? [],
     people: (raw.people ?? []).map((p: any) => ({
       id:          p.id,
@@ -34,6 +36,7 @@ function mapCompany(raw: any): Company {
       city:        p.city ?? undefined,
       icebreaker:  p.icebreaker ?? undefined,
       painPoint:   p.painPoint ?? undefined,
+      sourcePage:  p.sourcePage ?? undefined,
       emails: (p.emails ?? []).map((e: any) => ({
         address:   e.address,
         source:    (e.source as string).toLowerCase() as EmailSource,

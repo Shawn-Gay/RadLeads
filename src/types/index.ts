@@ -1,5 +1,5 @@
 export type EmailSource = 'csv' | 'guessed' | 'scraped' | 'api'
-export type CallOutcome = 'Connected' | 'LeftVoicemail' | 'NoAnswer' | 'WrongNumber' | 'CallBack' | 'NotInterested' | 'Interested'
+export type CallOutcome = 'Connected' | 'LeftVoicemail' | 'LeftMessage' | 'NoAnswer' | 'WrongNumber' | 'CallBack' | 'NotInterested' | 'Interested'
 
 export interface CallLog {
   id: string
@@ -37,6 +37,7 @@ export interface LeadPerson {
   // Populated after enrichment
   icebreaker?: string
   painPoint?: string
+  sourcePage?: string
   campaignIds: string[]
 }
 
@@ -54,6 +55,8 @@ export interface Company {
   enrichStatus: EnrichStatus
   researchedAt?: string
   enrichedAt?: string
+  meetingLink?: string
+  pagesCrawledCount: number
   people: LeadPerson[]
 }
 
@@ -132,6 +135,7 @@ export interface ImportPersonInput {
   phone?: string | null
   city?: string
   linkedinUrl?: string
+  callStatus?: string | null
 }
 
 export interface ImportCompanyInput {
@@ -139,4 +143,5 @@ export interface ImportCompanyInput {
   companyName?: string
   phone?: string | null
   employees?: string
+  callStatus?: string | null
 }

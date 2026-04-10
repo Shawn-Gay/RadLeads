@@ -1,6 +1,6 @@
-import { Phone, PhoneCall, Mail } from 'lucide-react'
+import { Phone, PhoneCall, Mail, MapPin } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { SOURCE_STYLES, SOURCE_LABELS, STATUS_STYLES, CALL_OUTCOME_STYLES } from './constants'
+import { SOURCE_STYLES, SOURCE_LABELS, STATUS_STYLES, CALL_OUTCOME_STYLES, CALL_OUTCOME_LABELS } from './constants'
 import type { LeadPerson, Campaign, CallLog } from '@/types'
 
 interface PersonRowProps {
@@ -34,12 +34,23 @@ export function PersonRow({ person, campaigns, lastCall, isSelected, onSelect, o
         {person.firstName[0]}{person.lastName[0]}
       </div>
 
-      {/* Name + Title */}
+      {/* Name + Title + Source */}
       <div className="w-44 shrink-0 min-w-0">
         <p className="text-sm font-medium text-foreground truncate leading-snug">
           {person.firstName} {person.lastName}
         </p>
-        <p className="text-[11px] text-muted-foreground truncate leading-snug">{person.title}</p>
+        <div className="flex items-center gap-1.5 min-w-0">
+          <p className="text-[11px] text-muted-foreground truncate leading-snug">{person.title}</p>
+          {person.sourcePage && (
+            <span
+              className="inline-flex items-center gap-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-teal-50 dark:bg-teal-950 text-teal-700 dark:text-teal-400 whitespace-nowrap shrink-0"
+              title={`Found on the "${person.sourcePage}" page of their website`}
+            >
+              <MapPin className="h-2.5 w-2.5" />
+              {person.sourcePage}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Email + source / status badges */}
@@ -95,7 +106,7 @@ export function PersonRow({ person, campaigns, lastCall, isSelected, onSelect, o
           <div className="flex items-center gap-1">
             <PhoneCall className="h-3 w-3 shrink-0" />
             <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded-full', CALL_OUTCOME_STYLES[lastCall.outcome])}>
-              {lastCall.outcome}
+              {CALL_OUTCOME_LABELS[lastCall.outcome]}
             </span>
           </div>
         ) : (
