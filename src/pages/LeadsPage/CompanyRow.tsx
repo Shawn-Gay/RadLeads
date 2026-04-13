@@ -15,6 +15,7 @@ interface CompanyRowProps {
   company: Company
   campaigns: Campaign[]
   callLogsByPerson: Map<string, CallLog>
+  attemptsByPerson: Map<string, number>
   companyCallLogs: CallLog[]
   isExpanded: boolean
   isChecked: boolean
@@ -29,7 +30,7 @@ interface CompanyRowProps {
 }
 
 export function CompanyRow({
-  company, campaigns, callLogsByPerson, companyCallLogs,
+  company, campaigns, callLogsByPerson, attemptsByPerson, companyCallLogs,
   isExpanded, isChecked, selectedPersonId,
   onExpand, onCheck, onSelectPerson,
   onResearch, onEnrich, onCallCompany, onCall,
@@ -307,6 +308,7 @@ export function CompanyRow({
                     person={person}
                     campaigns={campaigns}
                     lastCall={callLogsByPerson.get(person.id)}
+                    attempts={attemptsByPerson.get(person.id) ?? 0}
                     isSelected={selectedPersonId === person.id}
                     onSelect={() => onSelectPerson(selectedPersonId === person.id ? null : person.id)}
                     onCall={() => onCall(person.id)}

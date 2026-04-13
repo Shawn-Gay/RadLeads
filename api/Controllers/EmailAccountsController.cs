@@ -73,11 +73,43 @@ public class EmailAccountsController(
             ImapHost          = req.ImapHost,
             ImapPort          = req.ImapPort,
             EncryptedPassword = encryption.Encrypt(req.Password),
+            FirstName         = req.FirstName,
+            LastName          = req.LastName,
+            Title             = req.Title,
+            CompanyName       = req.CompanyName,
+            Phone             = req.Phone,
+            CalendarLink      = req.CalendarLink,
+            Signature         = req.Signature,
         };
 
         db.EmailAccounts.Add(account);
         await db.SaveChangesAsync();
         return CreatedAtAction(nameof(GetById), new { id = account.Id }, EmailAccountDto.From(account, 0));
+    }
+
+    // Updates only sender persona fields used for token replacement.
+    // Separate from PUT so the password and connection settings cannot be touched.
+    [HttpPatch("{id:guid}/sender-info")]
+    public async Task<IActionResult> PatchSenderInfo(Guid id, UpdateSenderInfoRequest req)
+    {
+        var account = await db.EmailAccounts.FindAsync(id);
+        if (account is null) return NotFound();
+
+        account.FirstName    = req.FirstName;
+        account.LastName     = req.LastName;
+        account.Title        = req.Title;
+        account.CompanyName  = req.CompanyName;
+        account.Phone        = req.Phone;
+        account.CalendarLink = req.CalendarLink;
+        account.Signature    = req.Signature;
+
+        await db.SaveChangesAsync();
+
+        var todayStart = new DateTimeOffset(DateTimeOffset.UtcNow.Date, TimeSpan.Zero);
+        var sentToday = await db.OutboundEmails
+            .CountAsync(o => o.EmailAccountId == id && o.SentAt >= todayStart);
+
+        return Ok(EmailAccountDto.From(account, sentToday));
     }
 
     [HttpPatch("{id:guid}/status")]

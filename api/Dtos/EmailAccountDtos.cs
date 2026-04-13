@@ -19,7 +19,24 @@ public record CreateEmailAccountRequest(
     string SmtpHost,
     int SmtpPort,
     string ImapHost,
-    int ImapPort
+    int ImapPort,
+    string? FirstName = null,
+    string? LastName = null,
+    string? Title = null,
+    string? CompanyName = null,
+    string? Phone = null,
+    string? CalendarLink = null,
+    string? Signature = null
+);
+
+public record UpdateSenderInfoRequest(
+    string? FirstName,
+    string? LastName,
+    string? Title,
+    string? CompanyName,
+    string? Phone,
+    string? CalendarLink,
+    string? Signature
 );
 
 public record EmailAccountDto(
@@ -36,6 +53,13 @@ public record EmailAccountDto(
     int SmtpPort,
     string ImapHost,
     int ImapPort,
+    string? FirstName,
+    string? LastName,
+    string? Title,
+    string? CompanyName,
+    string? Phone,
+    string? CalendarLink,
+    string? Signature,
     DateTimeOffset CreatedAt
 )
 {
@@ -44,5 +68,7 @@ public record EmailAccountDto(
         sentToday, a.DailyLimit,
         a.WarmupDay, a.WarmupTotalDays,
         a.SmtpHost, a.SmtpPort, a.ImapHost, a.ImapPort,
+        a.FirstName, a.LastName, a.Title, a.CompanyName,
+        a.Phone, a.CalendarLink, a.Signature,
         a.CreatedAt);
 }

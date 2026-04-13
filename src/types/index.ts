@@ -1,3 +1,10 @@
+export type DialDisposition = 'None' | 'NotInterested' | 'BadNumber' | 'Converted'
+
+export interface Dialer {
+  id: string
+  name: string
+}
+
 export type EmailSource = 'csv' | 'guessed' | 'scraped' | 'api'
 export type CallOutcome = 'Connected' | 'LeftVoicemail' | 'LeftMessage' | 'NoAnswer' | 'WrongNumber' | 'CallBack' | 'NotInterested' | 'Interested'
 
@@ -9,9 +16,10 @@ export interface CallLog {
   outcome: CallOutcome
   notes?: string
   calledAt: string
+  callbackAt?: string
 }
 export type EmailStatus = 'verified' | 'bounced' | 'unknown'
-export type EnrichStatus = 'not_enriched' | 'researching' | 'researched' | 'enriching' | 'enriched' | 'research_failed'
+export type EnrichStatus = 'not_enriched' | 'researching' | 'researched' | 'enriching' | 'enriched' | 'research_failed' | 'unreachable'
 export type CampaignStatus = 'active' | 'draft' | 'paused'
 export type AccountStatus = 'active' | 'warming' | 'paused' | 'inactive'
 export type AccountProvider = 'namecheap' | 'google' | 'smtp'
@@ -38,6 +46,7 @@ export interface LeadPerson {
   icebreaker?: string
   painPoint?: string
   sourcePage?: string
+  followUpEmailTemplate?: string
   campaignIds: string[]
 }
 
@@ -49,14 +58,17 @@ export interface Company {
   employees?: string
   // Populated after enrichment
   summary?: string
-  genericEmails?: string[]
   recentNews?: string
   phone?: string | null
+  email?: string | null
   enrichStatus: EnrichStatus
   researchedAt?: string
   enrichedAt?: string
   meetingLink?: string
   pagesCrawledCount: number
+  assignedToId?: string | null
+  assignedAt?: string | null
+  dialDisposition: DialDisposition
   people: LeadPerson[]
 }
 
@@ -93,6 +105,24 @@ export interface EmailAccount {
   sentToday: number
   warmupDay: number | null
   warmupTotalDays: number
+  // Sender persona — used for token replacement in personalized emails
+  firstName: string | null
+  lastName: string | null
+  title: string | null
+  companyName: string | null
+  phone: string | null
+  calendarLink: string | null
+  signature: string | null
+}
+
+export interface SenderPersonaInput {
+  firstName: string | null
+  lastName: string | null
+  title: string | null
+  companyName: string | null
+  phone: string | null
+  calendarLink: string | null
+  signature: string | null
 }
 
 export type WarmupActionType = 'sent' | 'marked_not_spam' | 'marked_read' | 'starred' | 'replied' | 'reacted'
@@ -142,6 +172,7 @@ export interface ImportCompanyInput {
   domain: string
   companyName?: string
   phone?: string | null
+  email?: string | null
   employees?: string
   callStatus?: string | null
 }

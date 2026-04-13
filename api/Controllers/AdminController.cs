@@ -35,7 +35,6 @@ public class AdminController(AppDbContext db) : ControllerBase
         {
             deleted["leadEmails"] = await db.LeadEmails.ExecuteDeleteAsync();
             deleted["leadPersons"] = await db.LeadPersons.ExecuteDeleteAsync();
-            deleted["companyGenericEmails"] = await db.CompanyGenericEmails.ExecuteDeleteAsync();
             deleted["companyResearches"] = await db.CompanyResearches.ExecuteDeleteAsync();
             deleted["companies"] = await db.Companies.ExecuteDeleteAsync();
         }

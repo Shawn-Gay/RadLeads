@@ -17,6 +17,15 @@ public class EmailAccount : BaseEntity
     public int ImapPort { get; set; } = 993;
     public string EncryptedPassword { get; set; } = string.Empty;
 
+    // Sender persona — used for token replacement in personalized emails
+    public string? FirstName { get; set; }
+    public string? LastName { get; set; }
+    public string? Title { get; set; }
+    public string? CompanyName { get; set; }
+    public string? Phone { get; set; }
+    public string? CalendarLink { get; set; }
+    public string? Signature { get; set; }
+
     public List<Campaign> Campaigns { get; set; } = [];
     public List<WarmupActivity> WarmupActivities { get; set; } = [];
 }

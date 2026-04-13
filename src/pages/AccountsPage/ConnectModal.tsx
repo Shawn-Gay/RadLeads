@@ -22,6 +22,14 @@ export function ConnectModal({ onClose, onConnected }: ConnectModalProps) {
   const [imapHost, setImapHost] = useState('')
   const [imapPort, setImapPort] = useState('993')
   const [dailyLimit, setDailyLimit] = useState('40')
+  // Sender persona — used for token replacement in personalized emails
+  const [firstName, setFirstName]       = useState('')
+  const [lastName, setLastName]         = useState('')
+  const [title, setTitle]               = useState('')
+  const [companyName, setCompanyName]   = useState('')
+  const [phone, setPhone]               = useState('')
+  const [calendarLink, setCalendarLink] = useState('')
+  const [signature, setSignature]       = useState('')
   const [error, setError] = useState<string | null>(null)
   const [createdAccount, setCreatedAccount] = useState<EmailAccount | null>(null)
 
@@ -50,6 +58,13 @@ export function ConnectModal({ onClose, onConnected }: ConnectModalProps) {
         dailyLimit: Number(dailyLimit) || 40,
         smtpHost, smtpPort: Number(smtpPort),
         imapHost, imapPort: Number(imapPort),
+        firstName:    firstName.trim()    || null,
+        lastName:     lastName.trim()     || null,
+        title:        title.trim()        || null,
+        companyName:  companyName.trim()  || null,
+        phone:        phone.trim()        || null,
+        calendarLink: calendarLink.trim() || null,
+        signature:    signature.trim()    || null,
       })
       setCreatedAccount(account)
       setStep('success')
@@ -183,6 +198,59 @@ export function ConnectModal({ onClose, onConnected }: ConnectModalProps) {
                   className="w-28 text-sm border border-input rounded-md px-2.5 py-1.5 bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-blue-500"
                   value={dailyLimit}
                   onChange={o => setDailyLimit(o.target.value)}
+                />
+              </div>
+
+              <div className="border-t border-border pt-3">
+                <p className="text-xs font-medium text-muted-foreground mb-2">Sender persona <span className="text-[10px] font-normal">(used in <code className="font-mono">{'{{senderFirstName}}'}</code> tokens)</span></p>
+                <div className="flex gap-2 mb-2">
+                  <input
+                    className="flex-1 text-xs border border-input rounded-md px-2.5 py-1.5 bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    placeholder="First name"
+                    value={firstName}
+                    onChange={o => setFirstName(o.target.value)}
+                  />
+                  <input
+                    className="flex-1 text-xs border border-input rounded-md px-2.5 py-1.5 bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    placeholder="Last name"
+                    value={lastName}
+                    onChange={o => setLastName(o.target.value)}
+                  />
+                </div>
+                <div className="flex gap-2 mb-2">
+                  <input
+                    className="flex-1 text-xs border border-input rounded-md px-2.5 py-1.5 bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    placeholder="Title (e.g. Founder)"
+                    value={title}
+                    onChange={o => setTitle(o.target.value)}
+                  />
+                  <input
+                    className="flex-1 text-xs border border-input rounded-md px-2.5 py-1.5 bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    placeholder="Company"
+                    value={companyName}
+                    onChange={o => setCompanyName(o.target.value)}
+                  />
+                </div>
+                <div className="flex gap-2 mb-2">
+                  <input
+                    className="flex-1 text-xs border border-input rounded-md px-2.5 py-1.5 bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    placeholder="Phone"
+                    value={phone}
+                    onChange={o => setPhone(o.target.value)}
+                  />
+                  <input
+                    className="flex-1 text-xs border border-input rounded-md px-2.5 py-1.5 bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    placeholder="Calendar link"
+                    value={calendarLink}
+                    onChange={o => setCalendarLink(o.target.value)}
+                  />
+                </div>
+                <textarea
+                  rows={3}
+                  className="w-full text-xs border border-input rounded-md px-2.5 py-1.5 bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none font-mono"
+                  placeholder="Signature (multiline)"
+                  value={signature}
+                  onChange={o => setSignature(o.target.value)}
                 />
               </div>
             </div>

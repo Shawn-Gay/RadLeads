@@ -9,6 +9,8 @@ import { LeadsToolbar } from './LeadsToolbar'
 import { LeadsTabs } from './LeadsTabs'
 import { CompanyRow } from './CompanyRow'
 import { DialerPanel } from './DialerPanel'
+import { DialerIdentityModal } from './DialerIdentityModal'
+import { AssignLeadsModal } from './AssignLeadsModal'
 import { COMPANY_GRID } from './constants'
 
 export function LeadsPage() {
@@ -27,20 +29,29 @@ export function LeadsPage() {
 
   // Full-page Dialer mode
   if (state.dialerMode && state.dialerCompany) {
+    const companyLogs = state.callLogsByCompany.get(state.dialerCompany.id) ?? []
     return (
       <div className="flex flex-col h-full overflow-hidden">
         <DialerPanel
           company={state.dialerCompany}
           index={state.dialerIndex ?? 0}
-          total={state.filtered.length}
+          total={state.dialerQueue.length}
           initialPersonId={state.dialerPersonId}
-          callLogs={state.callLogsByCompany.get(state.dialerCompany.id) ?? []}
+          callLogs={companyLogs}
+          attemptCount={companyLogs.length}
+          score={state.scoreByCompany.get(state.dialerCompany.id) ?? 0}
+          currentDialer={state.currentDialer}
           onPrev={state.dialerPrev}
           onNext={state.dialerNext}
           onNextCold={state.dialerNextCold}
           onExit={state.dialerExit}
+          onDrop={state.handleDropCompany}
+          onSwitchDialer={() => state.setShowIdentityModal(true)}
           onCallLogged={state.refreshCallLogs}
         />
+        {state.showIdentityModal && (
+          <DialerIdentityModal onSelect={state.handleIdentitySelected} />
+        )}
       </div>
     )
   }
@@ -139,6 +150,7 @@ export function LeadsPage() {
                         company={company}
                         campaigns={state.campaigns}
                         callLogsByPerson={state.callLogsByPerson}
+                        attemptsByPerson={state.attemptsByPerson}
                         companyCallLogs={state.callLogsByCompany.get(company.id) ?? []}
                         isExpanded={state.expandedIds.has(company.id)}
                         isChecked={state.checkedIds.has(company.id)}
@@ -173,6 +185,21 @@ export function LeadsPage() {
           />
         )}
       </div>
+
+      {/* Dialer identity modal */}
+      {state.showIdentityModal && (
+        <DialerIdentityModal onSelect={state.handleIdentitySelected} />
+      )}
+
+      {/* Assign leads modal */}
+      {state.showAssignModal && state.currentDialer && (
+        <AssignLeadsModal
+          dialer={state.currentDialer}
+          currentAssignedCount={state.dialerQueue.length}
+          onAssigned={state.handleAssigned}
+          onCancel={() => state.setShowAssignModal(false)}
+        />
+      )}
 
       {/* Import dialog */}
       {state.showImport && (

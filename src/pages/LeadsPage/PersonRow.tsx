@@ -7,12 +7,13 @@ interface PersonRowProps {
   person: LeadPerson
   campaigns: Campaign[]
   lastCall?: CallLog
+  attempts: number
   isSelected: boolean
   onSelect: () => void
   onCall: () => void
 }
 
-export function PersonRow({ person, campaigns, lastCall, isSelected, onSelect, onCall }: PersonRowProps) {
+export function PersonRow({ person, campaigns, lastCall, attempts, isSelected, onSelect, onCall }: PersonRowProps) {
   const primaryEmail    = person.emails.find(o => o.isPrimary) ?? person.emails[0]
   const personCampaigns = campaigns.filter(c => person.campaignIds.includes(c.id))
 
@@ -108,10 +109,22 @@ export function PersonRow({ person, campaigns, lastCall, isSelected, onSelect, o
             <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded-full', CALL_OUTCOME_STYLES[lastCall.outcome])}>
               {CALL_OUTCOME_LABELS[lastCall.outcome]}
             </span>
+            {attempts > 1 && (
+              <span className="text-[9px] font-mono text-muted-foreground">x{attempts}</span>
+            )}
           </div>
         ) : (
           <span className="text-[10px] text-muted-foreground">No calls</span>
         )}
+        {lastCall && (() => {
+          const days = Math.floor((Date.now() - new Date(lastCall.calledAt).getTime()) / 86_400_000)
+          if (days < 1) return null
+          return (
+            <span className={cn('text-[9px]', days >= 7 ? 'text-amber-600 dark:text-amber-400 font-semibold' : 'text-muted-foreground')}>
+              {days}d ago
+            </span>
+          )
+        })()}
         {primaryEmail && (
           <div className="flex items-center gap-1">
             <Mail className="h-3 w-3 shrink-0 text-muted-foreground" />

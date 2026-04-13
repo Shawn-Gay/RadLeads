@@ -22,4 +22,8 @@ public class OutboundEmail : BaseEntity
 
     /// <summary>Set when this email was queued by the campaign scheduler.</summary>
     public CampaignSend? CampaignSend { get; set; }
+
+    /// <summary>Set when this email was queued from the dialer follow-up flow.</summary>
+    public Company? Company { get; set; }
+    public LeadPerson? Person { get; set; }
 }

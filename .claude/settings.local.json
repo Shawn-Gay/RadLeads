@@ -24,7 +24,10 @@
       "Bash(cmd:*)",
       "Bash(grep -E \"\\\\.\\(cs|tsx?|sql\\)$\")",
       "Bash(npx vite:*)",
-      "Bash(ls -la /d/RadcoreAI/RadLeads/api/Controllers/*.cs)"
+      "Bash(ls -la /d/RadcoreAI/RadLeads/api/Controllers/*.cs)",
+      "Bash(ls:*)",
+      "Bash(node_modules/.bin/tsc --noEmit)",
+      "Bash(echo \"EXIT:$?\")"
     ]
   }
 }

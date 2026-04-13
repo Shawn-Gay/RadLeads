@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { useAppContext } from '@/context/AppContext'
 import { getAllCallLogs } from '@/services/callLogs'
+import { scoreCompany } from '@/lib/scoring'
 import type { Company, CallLog } from '@/types'
 import type { TabKey } from './constants'
 
@@ -9,7 +10,8 @@ export function useLeadsPage() {
     companies, campaigns,
     updateCompany, addFromImport, addFromCompanyImport,
     queueResearchCompanies, queueEnrichCompanies,
-    enrollPeopleInCampaign,
+    enrollPeopleInCampaign, dropCompany,
+    currentDialer, setCurrentDialer,
   } = useAppContext()
 
   const [expandedIds, setExpandedIds]               = useState<Set<string>>(new Set())
@@ -19,11 +21,14 @@ export function useLeadsPage() {
   const [search, setSearch]                         = useState('')
   const [showImport, setShowImport]                 = useState(false)
   const [showCampaignPicker, setShowCampaignPicker] = useState(false)
-  // dialer: index into `filtered`, null = closed
+  // dialer: index into `dialerQueue`, null = closed
   const [dialerMode, setDialerMode]                 = useState(false)
   const [dialerIndex, setDialerIndex]               = useState<number | null>(null)
   const [dialerPersonId, setDialerPersonId]         = useState<string | null>(null)
   const [callLogs, setCallLogs]                     = useState<CallLog[]>([])
+  // identity + assignment modals
+  const [showIdentityModal, setShowIdentityModal]   = useState(false)
+  const [showAssignModal, setShowAssignModal]       = useState(false)
   const campaignPickerRef                           = useRef<HTMLDivElement>(null)
 
   // Fetch call logs on mount
@@ -61,6 +66,32 @@ export function useLeadsPage() {
     return map
   }, [callLogs])
 
+  // Attempt counts: personId → number of calls
+  const attemptsByPerson = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const log of callLogs) {
+      if (!log.personId) continue
+      map.set(log.personId, (map.get(log.personId) ?? 0) + 1)
+    }
+    return map
+  }, [callLogs])
+
+  // Companies with pending callbacks (callbackAt in the future or today, newest log has outcome=CallBack)
+  const callbackCompanyIds = useMemo(() => {
+    const now = new Date().toISOString()
+    const ids = new Set<string>()
+    for (const [companyId, logs] of callLogsByCompany) {
+      const latest = logs[0] // already sorted newest first
+      if (latest?.outcome === 'CallBack') {
+        // Due if callbackAt is not set (user didn't pick a date) or callbackAt <= now
+        if (!latest.callbackAt || latest.callbackAt <= now) {
+          ids.add(companyId)
+        }
+      }
+    }
+    return ids
+  }, [callLogsByCompany])
+
   useEffect(() => {
     if (!showCampaignPicker) return
     function handle(e: MouseEvent) {
@@ -77,34 +108,59 @@ export function useLeadsPage() {
   const enrichedCount   = useMemo(() => companies.filter(o => o.enrichStatus === 'enriched').length, [companies])
 
   const tabCounts = useMemo(() => ({
-    all:          companies.length,
-    not_enriched: companies.filter(o => o.enrichStatus === 'not_enriched' || o.enrichStatus === 'researching').length,
-    researched:   companies.filter(o => o.enrichStatus === 'researched'   || o.enrichStatus === 'enriching').length,
-    enriched:     companies.filter(o => o.enrichStatus === 'enriched').length,
+    all:             companies.length,
+    callbacks:       [...callbackCompanyIds].filter(id => companies.some(o => o.id === id)).length,
+    not_enriched:    companies.filter(o => o.enrichStatus === 'not_enriched' || o.enrichStatus === 'researching').length,
+    researched:      companies.filter(o => o.enrichStatus === 'researched'   || o.enrichStatus === 'enriching').length,
+    enriched:        companies.filter(o => o.enrichStatus === 'enriched').length,
     research_failed: companies.filter(o => o.enrichStatus === 'research_failed').length,
-    in_campaign:  companies.filter(o => o.people.some(p => p.campaignIds.length > 0)).length,
-  }), [companies])
+    in_campaign:     companies.filter(o => o.people.some(p => p.campaignIds.length > 0)).length,
+  }), [companies, callbackCompanyIds])
 
   const filtered = useMemo(() => {
     let list = companies
-    if      (activeTab === 'not_enriched') list = list.filter(o => o.enrichStatus === 'not_enriched' || o.enrichStatus === 'researching')
-    else if (activeTab === 'researched')   list = list.filter(o => o.enrichStatus === 'researched'   || o.enrichStatus === 'enriching')
-    else if (activeTab === 'in_campaign')  list = list.filter(o => o.people.some(p => p.campaignIds.length > 0))
-    else if (activeTab !== 'all')          list = list.filter(o => o.enrichStatus === activeTab)
+    if      (activeTab === 'callbacks')     list = list.filter(o => callbackCompanyIds.has(o.id))
+    else if (activeTab === 'not_enriched')  list = list.filter(o => o.enrichStatus === 'not_enriched' || o.enrichStatus === 'researching')
+    else if (activeTab === 'researched')    list = list.filter(o => o.enrichStatus === 'researched'   || o.enrichStatus === 'enriching')
+    else if (activeTab === 'in_campaign')   list = list.filter(o => o.people.some(p => p.campaignIds.length > 0))
+    else if (activeTab !== 'all')           list = list.filter(o => o.enrichStatus === activeTab)
 
     if (search.trim()) {
       const q = search.toLowerCase()
       list = list.filter(o =>
         o.domain.includes(q) ||
         o.name.toLowerCase().includes(q) ||
+        (o.phone ?? '').includes(q) ||
         o.people.some(p =>
           `${p.firstName} ${p.lastName}`.toLowerCase().includes(q) ||
-          p.emails.some(e => e.address.toLowerCase().includes(q))
+          p.emails.some(e => e.address.toLowerCase().includes(q)) ||
+          (p.phone ?? '').includes(q)
         )
       )
     }
     return list
-  }, [companies, activeTab, search])
+  }, [companies, activeTab, search, callbackCompanyIds])
+
+  // Dialer queue: current dialer's assigned companies, sorted by priority score
+  const dialerQueue = useMemo(() => {
+    const assigned = currentDialer
+      ? companies.filter(o => o.assignedToId === currentDialer.id && o.dialDisposition === 'None')
+      : []
+    return [...assigned].sort((a, b) => {
+      const sa = scoreCompany(a, callLogsByCompany.get(a.id) ?? [])
+      const sb = scoreCompany(b, callLogsByCompany.get(b.id) ?? [])
+      return sb - sa
+    })
+  }, [companies, currentDialer, callLogsByCompany])
+
+  // Score lookup for display
+  const scoreByCompany = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const c of companies) {
+      map.set(c.id, scoreCompany(c, callLogsByCompany.get(c.id) ?? []))
+    }
+    return map
+  }, [companies, callLogsByCompany])
 
   const selectedDetail = useMemo(() => {
     if (!selected) return null
@@ -128,14 +184,41 @@ export function useLeadsPage() {
     [checkedIds, companies])
 
   function startDialer() {
-    if (filtered.length === 0) return
+    if (!currentDialer) {
+      setShowIdentityModal(true)
+      return
+    }
+    if (dialerQueue.length === 0) {
+      setShowAssignModal(true)
+      return
+    }
     setDialerMode(true)
     setDialerIndex(0)
     setDialerPersonId(null)
   }
 
+  function handleIdentitySelected(dialer: import('@/types').Dialer) {
+    setCurrentDialer(dialer)
+    setShowIdentityModal(false)
+    // Queue will be empty for a new dialer, so prompt to assign
+    setShowAssignModal(true)
+  }
+
+  function handleAssigned() {
+    setShowAssignModal(false)
+    setDialerMode(true)
+    setDialerIndex(0)
+    setDialerPersonId(null)
+  }
+
+  async function handleDropCompany(companyId: string, disposition: import('@/types').DialDisposition) {
+    await dropCompany(companyId, disposition)
+    // Move to next after drop
+    dialerNext()
+  }
+
   function openDialer(companyId: string, personId?: string) {
-    const idx = filtered.findIndex(o => o.id === companyId)
+    const idx = dialerQueue.findIndex(o => o.id === companyId)
     if (idx === -1) return
     setDialerMode(true)
     setDialerIndex(idx)
@@ -153,7 +236,7 @@ export function useLeadsPage() {
   function dialerNext() {
     setDialerIndex(prev => {
       if (prev === null) return null
-      if (prev < filtered.length - 1) return prev + 1
+      if (prev < dialerQueue.length - 1) return prev + 1
       // Reached the end — exit dialer
       setDialerMode(false)
       return null
@@ -164,8 +247,8 @@ export function useLeadsPage() {
   function dialerNextCold() {
     setDialerIndex(prev => {
       if (prev === null) return null
-      for (let i = prev + 1; i < filtered.length; i++) {
-        if (!callLogsByCompany.has(filtered[i].id)) return i
+      for (let i = prev + 1; i < dialerQueue.length; i++) {
+        if (!callLogsByCompany.has(dialerQueue[i].id)) return i
       }
       // Nothing cold ahead — stay put
       return prev
@@ -280,14 +363,20 @@ export function useLeadsPage() {
     checkedNotStartedCount, checkedResearchedCount, checkedEnrichedCount,
     // flags
     allChecked, someChecked,
+    // dialer identity
+    currentDialer, setCurrentDialer,
+    showIdentityModal, setShowIdentityModal,
+    showAssignModal, setShowAssignModal,
+    handleIdentitySelected, handleAssigned, handleDropCompany,
     // dialer
     dialerMode,
     dialerIndex,
-    dialerCompany: dialerIndex !== null ? filtered[dialerIndex] ?? null : null,
+    dialerQueue,
+    dialerCompany: dialerIndex !== null ? dialerQueue[dialerIndex] ?? null : null,
     dialerPersonId,
     startDialer, openDialer, dialerPrev, dialerNext, dialerNextCold, dialerExit,
-    // call logs
-    callLogsByPerson, callLogsByCompany, refreshCallLogs,
+    // call data
+    callLogsByPerson, callLogsByCompany, attemptsByPerson, scoreByCompany, refreshCallLogs,
     // actions
     toggleExpand, toggleCheck, toggleCheckAll,
     handleResearch, handleEnrich,

@@ -1,9 +1,12 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
-import type { Company, LeadPerson, Campaign, EmailAccount, WarmupActivity, InboxMessage, ImportPersonInput, ImportCompanyInput } from '@/types'
-import { getLeads, importPeople, importCompanies, queueResearch, queueEnrich } from '@/services/leads'
+import type { Company, Dialer, DialDisposition, LeadPerson, Campaign, EmailAccount, SenderPersonaInput, WarmupActivity, InboxMessage, ImportPersonInput, ImportCompanyInput } from '@/types'
+import { getLeads, importPeople, importCompanies, queueResearch, queueEnrich, assignLeads, dropLead } from '@/services/leads'
+import { getDialers, createDialer } from '@/services/dialers'
 import { getCampaigns, createCampaign, saveCampaign, enrollPeople, unenrollPerson } from '@/services/campaigns'
-import { getAccounts, getWarmupActivities, patchAccountStatus, deleteAccount } from '@/services/accounts'
+import { getAccounts, getWarmupActivities, patchAccountStatus, deleteAccount, updateSenderInfo } from '@/services/accounts'
 import { getInbox, markMessageRead } from '@/services/inbox'
+
+const DIALER_STORAGE_KEY = 'radleads:currentDialerId'
 
 interface AppContextValue {
   companies: Company[]
@@ -16,6 +19,8 @@ interface AppContextValue {
   queueEnrichCompanies: (ids: string[]) => Promise<void>
   enrollPeopleInCampaign: (personIds: string[], campaignId: string) => void
   removePersonFromCampaign: (personId: string, campaignId: string) => void
+  assignCompaniesToDialer: (dialerId: string, count: number) => Promise<void>
+  dropCompany: (companyId: string, disposition: DialDisposition) => Promise<void>
   campaigns: Campaign[]
   setCampaigns: React.Dispatch<React.SetStateAction<Campaign[]>>
   addCampaign: (c: Omit<Campaign, 'id'>) => Promise<Campaign>
@@ -25,11 +30,17 @@ interface AppContextValue {
   addAccount: (account: EmailAccount) => void
   toggleAccountStatus: (account: EmailAccount) => Promise<void>
   removeAccount: (id: string) => Promise<void>
+  updateAccountSenderInfo: (id: string, persona: SenderPersonaInput) => Promise<void>
   warmupActivities: WarmupActivity[]
   setWarmupActivities: React.Dispatch<React.SetStateAction<WarmupActivity[]>>
   inbox: InboxMessage[]
   setInbox: React.Dispatch<React.SetStateAction<InboxMessage[]>>
   markRead: (id: string) => void
+  // Dialer identity
+  dialers: Dialer[]
+  currentDialer: Dialer | null
+  setCurrentDialer: (dialer: Dialer | null) => void
+  addDialer: (name: string) => Promise<Dialer>
 }
 
 const AppContext = createContext<AppContextValue | null>(null)
@@ -40,6 +51,8 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
   const [accounts, setAccounts]             = useState<EmailAccount[]>([])
   const [warmupActivities, setWarmupActivities] = useState<WarmupActivity[]>([])
   const [inbox, setInbox]                   = useState<InboxMessage[]>([])
+  const [dialers, setDialers]               = useState<Dialer[]>([])
+  const [currentDialer, setCurrentDialerState] = useState<Dialer | null>(() => null)
 
   useEffect(() => {
     getLeads().then(setCompanies)
@@ -47,32 +60,39 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
     getAccounts().then(setAccounts)
     getWarmupActivities().then(setWarmupActivities)
     getInbox().then(setInbox)
+    getDialers().then(list => {
+      setDialers(list)
+      // Restore current dialer from localStorage
+      const savedId = localStorage.getItem(DIALER_STORAGE_KEY)
+      if (savedId) {
+        const found = list.find(o => o.id === savedId)
+        if (found) setCurrentDialerState(found)
+      }
+    })
   }, [])
 
+  function setCurrentDialer(dialer: Dialer | null) {
+    setCurrentDialerState(dialer)
+    if (dialer) localStorage.setItem(DIALER_STORAGE_KEY, dialer.id)
+    else localStorage.removeItem(DIALER_STORAGE_KEY)
+  }
+
+  async function addDialer(name: string): Promise<Dialer> {
+    const dialer = await createDialer(name)
+    setDialers(prev => [...prev, dialer])
+    return dialer
+  }
+
   async function addFromImport(people: ImportPersonInput[]): Promise<void> {
-    const updated = await importPeople(people)
-    setCompanies(prev => {
-      const next = [...prev]
-      for (const incoming of updated) {
-        const idx = next.findIndex(o => o.id === incoming.id)
-        if (idx >= 0) next[idx] = incoming
-        else next.push(incoming)
-      }
-      return next
-    })
+    await importPeople(people)
+    const all = await getLeads()
+    setCompanies(all)
   }
 
   async function addFromCompanyImport(inputs: ImportCompanyInput[]): Promise<void> {
-    const updated = await importCompanies(inputs)
-    setCompanies(prev => {
-      const next = [...prev]
-      for (const incoming of updated) {
-        const idx = next.findIndex(o => o.id === incoming.id)
-        if (idx >= 0) next[idx] = incoming
-        else next.push(incoming)
-      }
-      return next
-    })
+    await importCompanies(inputs)
+    const all = await getLeads()
+    setCompanies(all)
   }
 
   function updateCompany(id: string, partial: Partial<Omit<Company, 'people' | 'id'>>) {
@@ -118,6 +138,23 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
     enrollPeople(campaignId, personIds).catch(err => console.error('Enroll failed:', err))
   }
 
+  async function assignCompaniesToDialer(dialerId: string, count: number): Promise<void> {
+    const assigned = await assignLeads(dialerId, count)
+    setCompanies(prev => {
+      const map = new Map(assigned.map(o => [o.id, o]))
+      return prev.map(o => map.has(o.id) ? map.get(o.id)! : o)
+    })
+  }
+
+  async function dropCompany(companyId: string, disposition: DialDisposition): Promise<void> {
+    await dropLead(companyId, disposition)
+    setCompanies(prev => prev.map(o =>
+      o.id === companyId
+        ? { ...o, assignedToId: null, assignedAt: null, dialDisposition: disposition }
+        : o
+    ))
+  }
+
   function removePersonFromCampaign(personId: string, campaignId: string) {
     // Optimistic update
     setCompanies(prev => prev.map(o => ({
@@ -156,6 +193,11 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
     setAccounts(prev => prev.filter(o => o.id !== id))
   }
 
+  async function updateAccountSenderInfo(id: string, persona: SenderPersonaInput) {
+    const updated = await updateSenderInfo(id, persona)
+    setAccounts(prev => prev.map(o => o.id === id ? updated : o))
+  }
+
   function markRead(id: string) {
     setInbox(prev => prev.map(o => o.id === id ? { ...o, read: true } : o))
     markMessageRead(id)
@@ -167,10 +209,12 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
       updateCompany, updatePerson,
       queueResearchCompanies, queueEnrichCompanies,
       enrollPeopleInCampaign, removePersonFromCampaign,
+      assignCompaniesToDialer, dropCompany,
       campaigns, setCampaigns, addCampaign, updateCampaign,
-      accounts, setAccounts, addAccount, toggleAccountStatus, removeAccount,
+      accounts, setAccounts, addAccount, toggleAccountStatus, removeAccount, updateAccountSenderInfo,
       warmupActivities, setWarmupActivities,
       inbox, setInbox, markRead,
+      dialers, currentDialer, setCurrentDialer, addDialer,
     }}>
       {children}
     </AppContext.Provider>

@@ -1,7 +1,8 @@
 import { X, Copy, Check, ExternalLink, Sparkles, MapPin, Mail } from 'lucide-react'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
-import type { Company, LeadPerson, LeadEmail, Campaign, EmailSource, EmailStatus } from '@/types'
+import { SOURCE_STYLES, SOURCE_LABELS, STATUS_STYLES } from '@/pages/LeadsPage/constants'
+import type { Company, LeadPerson, LeadEmail, Campaign, EmailStatus } from '@/types'
 
 interface PersonDetailPanelProps {
   company: Company
@@ -42,21 +43,6 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   )
 }
 
-const SOURCE_STYLES: Record<EmailSource, string> = {
-  csv:     'bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400',
-  guessed: 'bg-violet-50 dark:bg-violet-950 text-violet-600 dark:text-violet-400',
-  scraped: 'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400',
-  api:     'bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-400',
-}
-const SOURCE_LABELS: Record<EmailSource, string> = {
-  csv: 'CSV', guessed: 'Guessed', scraped: 'Scraped', api: 'API',
-}
-
-const STATUS_STYLES: Record<EmailStatus, string> = {
-  verified: 'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400',
-  bounced:  'bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400',
-  unknown:  'bg-muted text-muted-foreground',
-}
 const STATUS_ICONS: Record<EmailStatus, string> = {
   verified: '✓', bounced: '✗', unknown: '?',
 }
@@ -190,16 +176,12 @@ export function PersonDetailPanel({ company, person, campaigns, onClose }: Perso
           )}
         </Section>
 
-        {/* Generic company emails — fallback contacts */}
-        {company.genericEmails && company.genericEmails.length > 0 && (
-          <Section title={<><Mail className="h-3 w-3" /> Company Emails</>}>
-            <div className="space-y-1">
-              {company.genericEmails.map(email => (
-                <div key={email} className="flex items-center gap-2 px-2.5 py-1.5 rounded-md border border-border bg-muted/30 text-xs">
-                  <span className="flex-1 text-foreground truncate">{email}</span>
-                  <CopyButton text={email} />
-                </div>
-              ))}
+        {/* Generic company email — fallback contact */}
+        {company.email && (
+          <Section title={<><Mail className="h-3 w-3" /> Company Email</>}>
+            <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-md border border-border bg-muted/30 text-xs">
+              <span className="flex-1 text-foreground truncate">{company.email}</span>
+              <CopyButton text={company.email} />
             </div>
           </Section>
         )}

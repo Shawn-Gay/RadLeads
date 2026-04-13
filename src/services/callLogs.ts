@@ -7,6 +7,7 @@ export interface LogCallInput {
   calledPhone: string
   outcome: CallOutcome
   notes?: string
+  callbackAt?: string
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -19,6 +20,7 @@ function mapCallLog(raw: any): CallLog {
     outcome:     raw.outcome as CallOutcome,
     notes:       raw.notes ?? undefined,
     calledAt:    raw.calledAt,
+    callbackAt:  raw.callbackAt ?? undefined,
   }
 }
 

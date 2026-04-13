@@ -1,4 +1,4 @@
-import type { EmailAccount, WarmupActivity, WarmupActionType, AccountProvider, AccountStatus } from '@/types'
+import type { EmailAccount, SenderPersonaInput, WarmupActivity, WarmupActionType, AccountProvider, AccountStatus } from '@/types'
 import { apiFetch } from '@/lib/api'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -17,6 +17,13 @@ function mapAccount(raw: any): EmailAccount {
     sentToday:      raw.sentToday ?? 0,
     warmupDay:      raw.warmupDay ?? null,
     warmupTotalDays: 30,
+    firstName:      raw.firstName    ?? null,
+    lastName:       raw.lastName     ?? null,
+    title:          raw.title        ?? null,
+    companyName:    raw.companyName  ?? null,
+    phone:          raw.phone        ?? null,
+    calendarLink:   raw.calendarLink ?? null,
+    signature:      raw.signature    ?? null,
   }
 }
 
@@ -53,11 +60,26 @@ export async function createAccount(req: {
   smtpPort: number
   imapHost: string
   imapPort: number
+  firstName?: string | null
+  lastName?: string | null
+  title?: string | null
+  companyName?: string | null
+  phone?: string | null
+  calendarLink?: string | null
+  signature?: string | null
 }): Promise<EmailAccount> {
   const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
   const raw = await apiFetch<any>('/api/emailaccounts', {
     method: 'POST',
     body: JSON.stringify({ ...req, provider: capitalize(req.provider) }),
+  })
+  return mapAccount(raw)
+}
+
+export async function updateSenderInfo(id: string, persona: SenderPersonaInput): Promise<EmailAccount> {
+  const raw = await apiFetch<any>(`/api/emailaccounts/${id}/sender-info`, {
+    method: 'PATCH',
+    body: JSON.stringify(persona),
   })
   return mapAccount(raw)
 }

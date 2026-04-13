@@ -29,6 +29,14 @@ public sealed class PlaywrightScraperService(ILogger<PlaywrightScraperService> l
         @"(?<!\d)(\+?1?\s*[-.]?\s*\(?\d{3}\)?[\s.\-]?\d{3}[\s.\-]?\d{4})(?!\d)",
         RegexOptions.Compiled);
 
+    private static readonly Regex MailtoHrefPattern = new(
+        @"href=""mailto:([^""?#]+)""",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    private static readonly Regex EmailTextPattern = new(
+        @"\b([A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,})\b",
+        RegexOptions.Compiled);
+
     private static readonly (string Path, string Label)[] FallbackPaths =
     [
         ("/about",            "About"),
@@ -108,6 +116,7 @@ public sealed class PlaywrightScraperService(ILogger<PlaywrightScraperService> l
         var pages   = new List<CrawledPage>();
         string? meeting = null;
         string? phone   = null;
+        string? email   = null;
 
         // Reuse one context for the whole crawl (same cookies/session if needed)
         await using var context = await browser.NewContextAsync(new BrowserNewContextOptions
@@ -135,6 +144,9 @@ public sealed class PlaywrightScraperService(ILogger<PlaywrightScraperService> l
                 if (phone is null)
                     phone = ExtractPhone(html);
 
+                if (email is null)
+                    email = ExtractEmail(html, baseUrl);
+
                 if (text.Length > 100)
                     pages.Add(new CrawledPage(url, label, text));
             }
@@ -144,7 +156,55 @@ public sealed class PlaywrightScraperService(ILogger<PlaywrightScraperService> l
             }
         }
 
-        return new CrawlResult(domain, pages, meeting, phone);
+        return new CrawlResult(domain, pages, meeting, phone, email);
+    }
+
+    private static string? ExtractEmail(string html, string baseUrl)
+    {
+        // Priority 1: mailto: href (highest confidence)
+        var mailto = MailtoHrefPattern.Match(html);
+        if (mailto.Success)
+        {
+            var addr = mailto.Groups[1].Value.Trim();
+            if (!IsJunkEmail(addr)) return addr.ToLowerInvariant();
+        }
+
+        // Priority 2: any email on page that matches site domain, preferring info@/contact@/hello@
+        string? host;
+        try { host = new Uri(baseUrl).Host.TrimStart('w', '.').ToLowerInvariant(); }
+        catch { return null; }
+
+        var candidates = EmailTextPattern.Matches(html)
+            .Select(m => m.Groups[1].Value.ToLowerInvariant())
+            .Where(e => !IsJunkEmail(e))
+            .Distinct()
+            .ToList();
+
+        // Prefer same-domain
+        var sameDomain = candidates
+            .Where(e => e.EndsWith('@' + host) || e.EndsWith('.' + host))
+            .ToList();
+
+        string[] preferredLocals = ["info", "contact", "hello", "sales", "support", "admin", "office"];
+        foreach (var local in preferredLocals)
+        {
+            var match = sameDomain.FirstOrDefault(e => e.StartsWith(local + '@'));
+            if (match is not null) return match;
+        }
+
+        return sameDomain.FirstOrDefault() ?? candidates.FirstOrDefault();
+    }
+
+    private static bool IsJunkEmail(string email)
+    {
+        // Image placeholders (e.g. user@2x.png) and obvious junk
+        if (email.EndsWith(".png") || email.EndsWith(".jpg") || email.EndsWith(".jpeg")
+            || email.EndsWith(".gif") || email.EndsWith(".svg") || email.EndsWith(".webp"))
+            return true;
+        if (email.Contains("sentry.io") || email.Contains("wixpress.com")
+            || email.Contains("example.com") || email.Contains("domain.com"))
+            return true;
+        return false;
     }
 
     private static async Task<(string? Html, string? Text)> FetchPageAsync(

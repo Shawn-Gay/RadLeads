@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronUp } from 'lucide-react'
+import { ChevronDown, ChevronUp, User, Save } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { StatusBadge } from '@/components/shared/StatusBadge'
-import type { EmailAccount, WarmupActivity, AccountProvider } from '@/types'
+import type { EmailAccount, WarmupActivity, AccountProvider, SenderPersonaInput } from '@/types'
+import { useAppContext } from '@/context/AppContext'
 import { WarmupPanel } from './WarmupPanel'
 
 function ProviderBadge({ provider }: { provider: AccountProvider }) {
@@ -21,9 +22,40 @@ interface AccountCardProps {
 }
 
 export function AccountCard({ account: a, activities, onToggle }: AccountCardProps) {
+  const { updateAccountSenderInfo } = useAppContext()
   const [expanded, setExpanded] = useState(false)
+  const [personaOpen, setPersonaOpen] = useState(false)
+  const [savingPersona, setSavingPersona] = useState(false)
+  const [persona, setPersona] = useState<SenderPersonaInput>({
+    firstName:    a.firstName,
+    lastName:     a.lastName,
+    title:        a.title,
+    companyName:  a.companyName,
+    phone:        a.phone,
+    calendarLink: a.calendarLink,
+    signature:    a.signature,
+  })
   const pct = Math.round((a.sentToday / a.dailyLimit) * 100)
   const isWarming = a.status === 'warming'
+  const senderLabel = [a.firstName, a.lastName].filter(Boolean).join(' ')
+
+  async function handleSavePersona() {
+    setSavingPersona(true)
+    try {
+      await updateAccountSenderInfo(a.id, {
+        firstName:    persona.firstName?.trim()    || null,
+        lastName:     persona.lastName?.trim()     || null,
+        title:        persona.title?.trim()        || null,
+        companyName:  persona.companyName?.trim()  || null,
+        phone:        persona.phone?.trim()        || null,
+        calendarLink: persona.calendarLink?.trim() || null,
+        signature:    persona.signature?.trim()    || null,
+      })
+      setPersonaOpen(false)
+    } finally {
+      setSavingPersona(false)
+    }
+  }
 
   return (
     <div className="bg-card border border-border rounded-lg px-5 py-4">
@@ -57,6 +89,14 @@ export function AccountCard({ account: a, activities, onToggle }: AccountCardPro
               </span>
             )}
             <span>Sent today: <span className="font-semibold text-foreground">{a.sentToday}</span> / {a.dailyLimit}</span>
+            <button
+              onClick={() => setPersonaOpen(o => !o)}
+              className="flex items-center gap-1 hover:text-foreground transition-colors"
+              title="Edit sender persona"
+            >
+              <User className="h-3 w-3" />
+              {senderLabel || <span className="italic">Set sender name</span>}
+            </button>
           </div>
 
           <div className="w-full bg-muted rounded-full h-1.5">
@@ -71,6 +111,79 @@ export function AccountCard({ account: a, activities, onToggle }: AccountCardPro
 
           {isWarming && expanded && (
             <WarmupPanel account={a} activities={activities} />
+          )}
+
+          {personaOpen && (
+            <div className="mt-3 pt-3 border-t border-border space-y-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Sender Persona
+              </p>
+              <div className="flex gap-2">
+                <input
+                  className="flex-1 text-xs border border-input rounded-md px-2 py-1.5 bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  placeholder="First name"
+                  value={persona.firstName ?? ''}
+                  onChange={o => setPersona(p => ({ ...p, firstName: o.target.value }))}
+                />
+                <input
+                  className="flex-1 text-xs border border-input rounded-md px-2 py-1.5 bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  placeholder="Last name"
+                  value={persona.lastName ?? ''}
+                  onChange={o => setPersona(p => ({ ...p, lastName: o.target.value }))}
+                />
+              </div>
+              <div className="flex gap-2">
+                <input
+                  className="flex-1 text-xs border border-input rounded-md px-2 py-1.5 bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  placeholder="Title"
+                  value={persona.title ?? ''}
+                  onChange={o => setPersona(p => ({ ...p, title: o.target.value }))}
+                />
+                <input
+                  className="flex-1 text-xs border border-input rounded-md px-2 py-1.5 bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  placeholder="Company"
+                  value={persona.companyName ?? ''}
+                  onChange={o => setPersona(p => ({ ...p, companyName: o.target.value }))}
+                />
+              </div>
+              <div className="flex gap-2">
+                <input
+                  className="flex-1 text-xs border border-input rounded-md px-2 py-1.5 bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  placeholder="Phone"
+                  value={persona.phone ?? ''}
+                  onChange={o => setPersona(p => ({ ...p, phone: o.target.value }))}
+                />
+                <input
+                  className="flex-1 text-xs border border-input rounded-md px-2 py-1.5 bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  placeholder="Calendar link"
+                  value={persona.calendarLink ?? ''}
+                  onChange={o => setPersona(p => ({ ...p, calendarLink: o.target.value }))}
+                />
+              </div>
+              <textarea
+                rows={3}
+                className="w-full text-xs border border-input rounded-md px-2 py-1.5 bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none font-mono"
+                placeholder="Signature (multiline)"
+                value={persona.signature ?? ''}
+                onChange={o => setPersona(p => ({ ...p, signature: o.target.value }))}
+              />
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setPersonaOpen(false)}
+                  className="text-xs text-muted-foreground hover:text-foreground px-2 py-1 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSavePersona}
+                  disabled={savingPersona}
+                  className="flex items-center gap-1 text-xs text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 px-3 py-1.5 rounded-md transition-colors"
+                >
+                  <Save className="h-3 w-3" />
+                  {savingPersona ? 'Saving…' : 'Save persona'}
+                </button>
+              </div>
+            </div>
           )}
         </div>
 

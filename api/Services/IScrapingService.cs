@@ -2,7 +2,7 @@ namespace RadLeads.Api.Services;
 
 public record CrawledPage(string Url, string Label, string Text);
 
-public record CrawlResult(string Domain, List<CrawledPage> Pages, string? MeetingLink, string? Phone)
+public record CrawlResult(string Domain, List<CrawledPage> Pages, string? MeetingLink, string? Phone, string? Email)
 {
     // Cap each page so later pages (Team, About) aren't truncated out by a long Homepage.
     // 15 pages × 5 000 chars = 75 000 chars max, truncated to 60 000 in the AI call.

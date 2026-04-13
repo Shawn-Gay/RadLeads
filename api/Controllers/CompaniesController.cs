@@ -14,9 +14,9 @@ public class CompaniesController(AppDbContext db) : ControllerBase
     public async Task<IActionResult> GetAll()
     {
         var companies = await db.Companies
+            .Include(o => o.AssignedTo)
             .Include(o => o.People).ThenInclude(o => o.Emails)
             .Include(o => o.People).ThenInclude(o => o.Campaigns)
-            .Include(o => o.GenericEmails)
             .Include(o => o.Research)
             .ToListAsync();
         return Ok(companies.Select(ToDto));
@@ -26,31 +26,34 @@ public class CompaniesController(AppDbContext db) : ControllerBase
     public async Task<IActionResult> GetById(Guid id)
     {
         var company = await db.Companies
+            .Include(o => o.AssignedTo)
             .Include(o => o.People).ThenInclude(o => o.Emails)
             .Include(o => o.People).ThenInclude(o => o.Campaigns)
-            .Include(o => o.GenericEmails)
             .Include(o => o.Research)
             .FirstOrDefaultAsync(o => o.Id == id);
         return company is null ? NotFound() : Ok(ToDto(company));
     }
 
     // Bulk import: groups by domain, upserts companies, deduplicates by email address.
-    // Returns the affected CompanyDtos so the frontend can merge without a full reload.
+    // Returns affected company IDs — frontend refreshes via getLeads().
     [HttpPost("import")]
     public async Task<IActionResult> Import([FromBody] ImportPersonInput[] inputs)
     {
-        var byDomain = inputs.GroupBy(o => o.Domain.ToLowerInvariant());
-        var affected = new List<Company>();
+        var byDomain = inputs.GroupBy(o => o.Domain.ToLowerInvariant()).ToList();
+        var domains  = byDomain.Select(o => o.Key).ToList();
+
+        var existing = await db.Companies
+            .Include(o => o.People).ThenInclude(o => o.Emails)
+            .Include(o => o.People).ThenInclude(o => o.Campaigns)
+            .Where(o => domains.Contains(o.Domain))
+            .ToListAsync();
+
+        var byDomainMap = existing.ToDictionary(o => o.Domain);
+        var affectedIds = new List<Guid>();
 
         foreach (var group in byDomain)
         {
-            var company = await db.Companies
-                .Include(o => o.People).ThenInclude(o => o.Emails)
-                .Include(o => o.People).ThenInclude(o => o.Campaigns)
-                .Include(o => o.GenericEmails)
-                .FirstOrDefaultAsync(o => o.Domain == group.Key);
-
-            if (company is null)
+            if (!byDomainMap.TryGetValue(group.Key, out var company))
             {
                 company = new Company
                 {
@@ -58,12 +61,13 @@ public class CompaniesController(AppDbContext db) : ControllerBase
                     Name   = group.First().CompanyName ?? group.Key,
                 };
                 db.Companies.Add(company);
+                byDomainMap[group.Key] = company;
             }
 
             foreach (var input in group)
             {
-                var emailLower   = input.Email.ToLowerInvariant();
-                var emailExists  = company.People.Any(p =>
+                var emailLower  = input.Email.ToLowerInvariant();
+                var emailExists = company.People.Any(p =>
                     p.Emails.Any(e => e.Address.ToLowerInvariant() == emailLower));
                 if (emailExists) continue;
 
@@ -102,11 +106,11 @@ public class CompaniesController(AppDbContext db) : ControllerBase
                 }
             }
 
-            affected.Add(company);
+            affectedIds.Add(company.Id);
         }
 
         await db.SaveChangesAsync();
-        return Ok(affected.Select(ToDto));
+        return Ok(affectedIds);
     }
 
     [HttpPost]
@@ -163,40 +167,101 @@ public class CompaniesController(AppDbContext db) : ControllerBase
         return Ok(new { queued = companies.Count });
     }
 
+    // Assign top-N unassigned companies (by priority) to a dialer.
+    [HttpPost("assign")]
+    public async Task<IActionResult> Assign([FromBody] AssignLeadsRequest req)
+    {
+        var dialer = await db.Dialers.FindAsync(req.DialerId);
+        if (dialer is null) return NotFound("Dialer not found.");
+
+        var existing = await db.Companies.CountAsync(o =>
+            o.AssignedTo!.Id == req.DialerId && o.DialDisposition == DialDisposition.None);
+
+        const int cap     = 50;
+        var available = cap - existing;
+        if (available <= 0) return BadRequest($"Already at cap ({cap} assigned leads).");
+
+        var toAssign = Math.Min(req.Count, available);
+
+        // Priority order: Enriched > Researched > other; then oldest first
+        var companies = await db.Companies
+            .Include(o => o.AssignedTo)
+            .Include(o => o.People).ThenInclude(o => o.Emails)
+            .Include(o => o.People).ThenInclude(o => o.Campaigns)
+            .Include(o => o.Research)
+            .Where(o => o.AssignedTo == null && o.DialDisposition == DialDisposition.None)
+            .OrderByDescending(o => o.EnrichStatus == EnrichStatus.Enriched   ? 2 :
+                                    o.EnrichStatus == EnrichStatus.Researched ? 1 : 0)
+            .ThenBy(o => o.CreatedAt)
+            .Take(toAssign)
+            .ToListAsync();
+
+        foreach (var c in companies)
+        {
+            c.AssignedTo = dialer;
+            c.AssignedAt = DateTimeOffset.UtcNow;
+        }
+
+        await db.SaveChangesAsync();
+        return Ok(companies.Select(ToDto));
+    }
+
+    // Drop a company: unassign and optionally set a disposition.
+    [HttpPatch("{id:guid}/drop")]
+    public async Task<IActionResult> Drop(Guid id, [FromBody] DropLeadRequest req)
+    {
+        var company = await db.Companies
+            .Include(o => o.AssignedTo)
+            .FirstOrDefaultAsync(o => o.Id == id);
+        if (company is null) return NotFound();
+
+        company.AssignedTo       = null;
+        company.AssignedAt       = null;
+        company.DialDisposition  = req.Disposition;
+
+        await db.SaveChangesAsync();
+        return Ok(new { company.Id, AssignedToId = (Guid?)null, company.DialDisposition });
+    }
+
     // ── helpers ──────────────────────────────────────────────────────────────
 
     // Bulk import: companies-only (no people). Upserts by domain.
+    // Returns affected company IDs — frontend refreshes via getLeads().
     [HttpPost("import-companies")]
     public async Task<IActionResult> ImportCompanies([FromBody] ImportCompanyInput[] inputs)
     {
-        var affected = new List<Company>();
+        var domains = inputs.Select(o => o.Domain.ToLowerInvariant()).Distinct().ToList();
+
+        var existing = await db.Companies
+            .Where(o => domains.Contains(o.Domain))
+            .ToListAsync();
+
+        var byDomain    = existing.ToDictionary(o => o.Domain);
+        var affectedIds = new List<Guid>();
 
         foreach (var input in inputs)
         {
             var domain = input.Domain.ToLowerInvariant();
 
-            var company = await db.Companies
-                .Include(o => o.People).ThenInclude(o => o.Emails)
-                .Include(o => o.People).ThenInclude(o => o.Campaigns)
-                .Include(o => o.GenericEmails)
-                .FirstOrDefaultAsync(o => o.Domain == domain);
-
-            if (company is null)
+            if (!byDomain.TryGetValue(domain, out var company))
             {
                 company = new Company
                 {
                     Domain    = domain,
                     Name      = input.CompanyName ?? domain,
                     Phone     = input.Phone,
+                    Email     = input.Email,
                     Employees = input.Employees,
                 };
                 db.Companies.Add(company);
+                byDomain[domain] = company;
             }
             else
             {
-                if (input.Phone is not null) company.Phone = input.Phone;
-                if (input.Employees is not null) company.Employees = input.Employees;
-                if (input.CompanyName is not null) company.Name = input.CompanyName;
+                if (input.Phone is not null)       company.Phone     = input.Phone;
+                if (input.Email is not null)       company.Email     = input.Email;
+                if (input.Employees is not null)   company.Employees = input.Employees;
+                if (input.CompanyName is not null) company.Name      = input.CompanyName;
             }
 
             if (!string.IsNullOrWhiteSpace(input.CallStatus))
@@ -211,11 +276,11 @@ public class CompaniesController(AppDbContext db) : ControllerBase
                     });
             }
 
-            affected.Add(company);
+            affectedIds.Add(company.Id);
         }
 
         await db.SaveChangesAsync();
-        return Ok(affected.Select(ToDto));
+        return Ok(affectedIds);
     }
 
     static CallOutcome? ParseCallOutcome(string raw) =>
@@ -248,12 +313,15 @@ public class CompaniesController(AppDbContext db) : ControllerBase
         c.Summary,
         c.RecentNews,
         c.Phone,
+        c.Email,
         c.EnrichStatus,
         c.ResearchedAt,
         c.EnrichedAt,
         c.Research?.MeetingLink,
         CountPagesCrawled(c),
-        c.GenericEmails.Select(o => o.Email).ToList(),
+        c.AssignedTo?.Id,
+        c.AssignedAt,
+        c.DialDisposition,
         c.People.Select(p => new LeadPersonDto(
             p.Id,
             p.FirstName,

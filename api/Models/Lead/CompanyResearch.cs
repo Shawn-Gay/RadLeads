@@ -13,6 +13,7 @@ public class CompanyResearch : BaseEntity
     public DateTimeOffset? SummarizedAt { get; set; }
 
     public string? ErrorMessage { get; set; }
+    public int ScrapeFailCount { get; set; }
 
     public Company Company { get; set; } = null!;
 }

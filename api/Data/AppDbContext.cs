@@ -6,7 +6,7 @@ namespace RadLeads.Api.Data;
 public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
     public DbSet<Company> Companies => Set<Company>();
-    public DbSet<CompanyGenericEmail> CompanyGenericEmails => Set<CompanyGenericEmail>();
+    public DbSet<Dialer> Dialers => Set<Dialer>();
     public DbSet<LeadPerson> LeadPersons => Set<LeadPerson>();
     public DbSet<LeadEmail> LeadEmails => Set<LeadEmail>();
     public DbSet<Campaign> Campaigns => Set<Campaign>();
@@ -42,10 +42,18 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         config.Properties<WarmupAction>().HaveConversion<string>();
         config.Properties<OutboundEmailStatus>().HaveConversion<string>();
         config.Properties<CallOutcome>().HaveConversion<string>();
+        config.Properties<DialDisposition>().HaveConversion<string>();
     }
 
     protected override void OnModelCreating(ModelBuilder model)
     {
+        // Company → Dialer (optional assignment)
+        model.Entity<Company>()
+            .HasOne(o => o.AssignedTo)
+            .WithMany(o => o.AssignedCompanies)
+            .HasForeignKey("AssignedToId")
+            .IsRequired(false);
+
         // Implicit many-to-many: LeadPerson ↔ Campaign
         model.Entity<LeadPerson>()
             .HasMany(o => o.Campaigns)
@@ -75,6 +83,19 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .IsRequired(false);
 
         model.Entity<CallLog>()
+            .HasOne(o => o.Company)
+            .WithMany()
+            .HasForeignKey("CompanyId")
+            .IsRequired(false);
+
+        // OutboundEmail: optional link back to Person/Company (set for dialer follow-ups)
+        model.Entity<OutboundEmail>()
+            .HasOne(o => o.Person)
+            .WithMany()
+            .HasForeignKey("PersonId")
+            .IsRequired(false);
+
+        model.Entity<OutboundEmail>()
             .HasOne(o => o.Company)
             .WithMany()
             .HasForeignKey("CompanyId")

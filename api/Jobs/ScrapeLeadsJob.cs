@@ -13,12 +13,14 @@ public class ScrapeLeadsJob(
     ILogger<ScrapeLeadsJob> logger) : IJob
 {
     private const int BatchSize = 20;
+    private const int MaxScrapeFailures = 3;
 
     public async Task Execute(IJobExecutionContext context)
     {
         var ct = context.CancellationToken;
 
         var companies = await db.Companies
+            .Include(o => o.Research)
             .Where(o => o.EnrichStatus == EnrichStatus.Researching)
             .Take(BatchSize)
             .ToListAsync(ct);
@@ -37,11 +39,7 @@ public class ScrapeLeadsJob(
 
                 if (result.Pages.Count == 0)
                 {
-                    company.EnrichStatus = EnrichStatus.ResearchFailed;
-                    SetResearch(db, company, r =>
-                    {
-                        r.ErrorMessage = "No pages could be crawled";
-                    });
+                    RecordScrapeFailure(db, company, "No pages could be crawled");
                 }
                 else
                 {
@@ -49,6 +47,8 @@ public class ScrapeLeadsJob(
                     company.ResearchedAt = DateTimeOffset.UtcNow;
                     if (result.Phone is not null && company.Phone is null)
                         company.Phone = result.Phone;
+                    if (result.Email is not null && company.Email is null)
+                        company.Email = result.Email;
                     SetResearch(db, company, r =>
                     {
                         r.RawText = result.CombinedText;
@@ -57,6 +57,7 @@ public class ScrapeLeadsJob(
                             result.Pages.Select(p => new { p.Label, p.Url }));
                         r.ScrapedAt = DateTimeOffset.UtcNow;
                         r.ErrorMessage = null;
+                        r.ScrapeFailCount = 0;
                     });
 
                     logger.LogDebug("Scraped {Domain}: {Pages} pages, meeting={Meeting}",
@@ -66,8 +67,7 @@ public class ScrapeLeadsJob(
             catch (Exception ex)
             {
                 logger.LogError(ex, "Scrape failed for {Domain}", company.Domain);
-                company.EnrichStatus = EnrichStatus.ResearchFailed;
-                SetResearch(db, company, r => r.ErrorMessage = ex.Message);
+                RecordScrapeFailure(db, company, ex.Message);
             }
 
             try
@@ -79,6 +79,26 @@ public class ScrapeLeadsJob(
                 logger.LogError(ex, "Failed to save scrape results for {Domain}", company.Domain);
             }
 
+        }
+    }
+
+    private void RecordScrapeFailure(AppDbContext db, Company company, string error)
+    {
+        SetResearch(db, company, r =>
+        {
+            r.ScrapeFailCount++;
+            r.ErrorMessage = error;
+        });
+
+        if ((company.Research?.ScrapeFailCount ?? 1) >= MaxScrapeFailures)
+        {
+            company.EnrichStatus = EnrichStatus.Unreachable;
+            logger.LogWarning("Marking {Domain} as Unreachable after {Max} failed scrape attempts", company.Domain, MaxScrapeFailures);
+        }
+        else
+        {
+            // Reset to Researching so the job picks it up again on the next tick
+            company.EnrichStatus = EnrichStatus.Researching;
         }
     }
 

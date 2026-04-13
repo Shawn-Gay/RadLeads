@@ -17,7 +17,7 @@ type PersonFieldKey =
   | 'title' | 'phone' | 'city' | 'linkedinUrl'
   | 'callStatus'
 
-type CompanyFieldKey = 'domain' | 'companyName' | 'phone' | 'employees' | 'callStatus'
+type CompanyFieldKey = 'domain' | 'companyName' | 'phone' | 'email' | 'employees' | 'callStatus'
 
 type FieldKey = PersonFieldKey | CompanyFieldKey
 
@@ -46,6 +46,7 @@ const COMPANY_FIELDS: FieldDef[] = [
   { key: 'domain',      label: 'Domain',       required: true },
   { key: 'companyName', label: 'Company Name' },
   { key: 'phone',       label: 'Phone' },
+  { key: 'email',       label: 'Email',        hint: 'Generic company email' },
   { key: 'employees',   label: 'Employees' },
   { key: 'callStatus',  label: 'Call Status',  hint: 'e.g. Connected, No Answer, Voicemail' },
 ]
@@ -87,7 +88,7 @@ function autoMap(headers: string[], fields: FieldDef[]): Record<string, string> 
     firstName:   ['first name', 'first_name', 'firstname', 'fname'],
     lastName:    ['last name', 'last_name', 'lastname', 'lname'],
     fullName:    ['full name', 'full_name', 'fullname', 'name'],
-    email:       ['email', 'e-mail', 'email address'],
+    email:       ['email', 'e-mail', 'email address', 'company email', 'contact email', 'info email'],
     domain:      ['domain', 'website', 'url'],
     companyName: ['company', 'organization', 'org', 'employer', 'name'],
     title:       ['title', 'job title', 'position', 'role'],
@@ -189,6 +190,7 @@ function buildImportCompanies(
         domain,
         companyName: get(row, mapping.companyName) || undefined,
         phone:       get(row, mapping.phone) || null,
+        email:       get(row, mapping.email) || null,
         employees:   get(row, mapping.employees) || undefined,
         callStatus:  get(row, mapping.callStatus) || null,
       }

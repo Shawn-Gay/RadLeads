@@ -7,6 +7,7 @@ export const ENRICH_CONFIG: Record<EnrichStatus, { label: string; cls: string; s
   enriching:    { label: 'Enriching…',   cls: 'bg-violet-50 dark:bg-violet-950 text-violet-700 dark:text-violet-400', spin: true },
   enriched:     { label: 'Enriched',     cls: 'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400' },
   research_failed: { label: 'Research Failed', cls: 'bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400' },
+  unreachable:     { label: 'Unreachable',      cls: 'bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400' },
 }
 
 export const SOURCE_STYLES: Record<EmailSource, string> = {
@@ -48,16 +49,70 @@ export const CALL_OUTCOME_STYLES: Record<CallOutcome, string> = {
   Interested:     'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400',
 }
 
-export type TabKey = 'all' | 'not_enriched' | 'researched' | 'enriched' | 'research_failed' | 'in_campaign'
+export type TabKey = 'all' | 'not_enriched' | 'researched' | 'enriched' | 'research_failed' | 'in_campaign' | 'callbacks'
 
 export const TABS: { key: TabKey; label: string }[] = [
-  { key: 'all',          label: 'All' },
-  { key: 'not_enriched', label: 'Not Started' },
-  { key: 'researched',   label: 'Researched' },
-  { key: 'enriched',     label: 'Enriched' },
+  { key: 'all',             label: 'All' },
+  { key: 'callbacks',       label: 'Callbacks Due' },
+  { key: 'not_enriched',    label: 'Not Started' },
+  { key: 'researched',      label: 'Researched' },
+  { key: 'enriched',        label: 'Enriched' },
   { key: 'research_failed', label: 'Research Failed' },
-  { key: 'in_campaign',  label: 'In Campaign' },
+  { key: 'in_campaign',     label: 'In Campaign' },
 ]
 
 // Grid column layout for company header + company rows
 export const COMPANY_GRID = 'grid-cols-[32px_32px_1fr_80px_120px_144px_72px]'
+
+// ─── Follow-up email defaults ────────────────────────────────────────────────
+
+export const DEFAULT_FOLLOW_UP_SUBJECT = 'Quick follow-up — {{company}}'
+
+export const DEFAULT_FOLLOW_UP_EMAIL = `Hi {{firstName}},
+
+I just tried reaching you at {{company}}. {{painPoint}}
+
+We help businesses like {{company}} build a consistent pipeline of qualified leads using AI-driven outreach.
+
+Would you have 15 minutes this week for a quick chat?
+
+{{meetingLink}}
+
+Best,
+Shawn`
+
+// Outcomes that default the follow-up email toggle ON
+export const FOLLOW_UP_DEFAULT_ON: Set<CallOutcome> = new Set([
+  'LeftVoicemail', 'LeftMessage', 'NoAnswer', 'Connected',
+])
+
+// ─── Objection playbook ─────────────────────────────────────────────────────
+
+export interface Objection { trigger: string; response: string }
+
+export const OBJECTION_PLAYBOOK: Objection[] = [
+  {
+    trigger: "I'm busy / not a good time",
+    response: "Totally understand, {{firstName}}. Just 30 seconds — we help companies like {{company}} generate qualified leads with AI outreach. Worth a 15-min chat this week?",
+  },
+  {
+    trigger: "We already have something for that",
+    response: "That's great to hear. Most of our clients did too. Quick question — are you happy with the volume of qualified meetings you're getting?",
+  },
+  {
+    trigger: "Just send me an email",
+    response: "Absolutely, I'll send that right over. Just so I send the right info — are you currently doing any outbound prospecting, or is it mostly inbound?",
+  },
+  {
+    trigger: "How did you get my number?",
+    response: "I was researching {{company}} and saw {{icebreaker}} — that's actually why I'm reaching out. We specialize in helping companies like yours build a consistent pipeline.",
+  },
+  {
+    trigger: "What's this about?",
+    response: "This is Shawn from RadcoreAI. I help companies like {{company}} generate qualified B2B leads using AI-driven outreach. I had a quick question about your current lead gen strategy.",
+  },
+  {
+    trigger: "We don't have budget",
+    response: "Totally fair, {{firstName}}. Most of our clients saw ROI within the first month. Would it make sense to at least see what it would look like for {{company}}? No commitment.",
+  },
+]

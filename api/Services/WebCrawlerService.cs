@@ -109,7 +109,7 @@ public class WebCrawlerService(IHttpClientFactory httpFactory, ILogger<WebCrawle
             }
         }
 
-        return new CrawlResult(domain, pages, meeting, phone);
+        return new CrawlResult(domain, pages, meeting, phone, null);
     }
 
     // ── Discovery ────────────────────────────────────────────────────────────

@@ -30,13 +30,19 @@ public record CompanyDto(
     string? Summary,
     string? RecentNews,
     string? Phone,
+    string? Email,
     EnrichStatus EnrichStatus,
     DateTimeOffset? ResearchedAt,
     DateTimeOffset? EnrichedAt,
     string? MeetingLink,
     int PagesCrawledCount,
-    List<string> GenericEmails,
+    Guid? AssignedToId,
+    DateTimeOffset? AssignedAt,
+    DialDisposition DialDisposition,
     List<LeadPersonDto> People);
+
+public record AssignLeadsRequest(Guid DialerId, int Count);
+public record DropLeadRequest(DialDisposition Disposition);
 
 public record ImportPersonInput(
     string Domain,
@@ -54,5 +60,6 @@ public record ImportCompanyInput(
     string Domain,
     string? CompanyName,
     string? Phone,
+    string? Email,
     string? Employees,
     string? CallStatus);

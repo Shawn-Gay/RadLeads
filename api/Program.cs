@@ -10,11 +10,15 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers()
     .AddJsonOptions(o =>
         o.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
+builder.Services.AddHttpClient();
 builder.Services.AddSingleton<EncryptionService>();
 builder.Services.AddSingleton<EmailConnectionService>();
 builder.Services.AddScoped<IEmailSendService, MailKitEmailSendService>();
+builder.Services.AddScoped<BrevoEmailSendService>();
 builder.Services.AddScoped<IWarmupService, WarmupService>();
 builder.Services.AddScoped<ICampaignDispatchService, CampaignDispatchService>();
+builder.Services.AddScoped<IScrapingService, PlaywrightScraperService>();
+builder.Services.AddScoped<IAiService, OpenAiService>();
 
 builder.Services.AddQuartz(q =>
 {
@@ -56,6 +60,27 @@ builder.Services.AddQuartz(q =>
         .WithIdentity("CampaignScheduleTrigger")
         .WithCronSchedule("0 5 8 * * ?"));   // 8:05 AM UTC — after warmup schedule
 
+    q.AddJob<SummarizeLeadsJob>(j => j
+        .WithIdentity("SummarizeLeadsJob")
+        .StoreDurably())
+     .AddTrigger(t => t
+        .ForJob("SummarizeLeadsJob")
+        .WithIdentity("SummarizeLeadsTrigger")
+        .WithSimpleSchedule(s => s
+            .WithIntervalInMinutes(2)
+            .RepeatForever()
+            .WithMisfireHandlingInstructionNextWithRemainingCount()));
+
+    q.AddJob<ScrapeLeadsJob>(j => j
+        .WithIdentity("ScrapeLeadsJob")
+        .StoreDurably())
+     .AddTrigger(t => t
+        .ForJob("ScrapeLeadsJob")
+        .WithIdentity("ScrapeLeadsTrigger")
+        .WithSimpleSchedule(s => s
+            .WithIntervalInMinutes(2)
+            .RepeatForever()
+            .WithMisfireHandlingInstructionNextWithRemainingCount()));
 
 });
 

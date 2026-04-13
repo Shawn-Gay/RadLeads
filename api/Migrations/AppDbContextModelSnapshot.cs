@@ -245,14 +245,27 @@ namespace RadLeads.Api.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<DateTimeOffset?>("AssignedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("AssignedToId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTimeOffset?>("DeletedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("DialDisposition")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<string>("Domain")
                         .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Email")
                         .HasColumnType("text");
 
                     b.Property<string>("Employees")
@@ -286,36 +299,9 @@ namespace RadLeads.Api.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("AssignedToId");
+
                     b.ToTable("Companies");
-                });
-
-            modelBuilder.Entity("RadLeads.Api.Models.CompanyGenericEmail", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("CompanyId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTimeOffset?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Email")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CompanyId");
-
-                    b.ToTable("CompanyGenericEmails");
                 });
 
             modelBuilder.Entity("RadLeads.Api.Models.CompanyResearch", b =>
@@ -345,6 +331,9 @@ namespace RadLeads.Api.Migrations
                     b.Property<string>("RawText")
                         .HasColumnType("text");
 
+                    b.Property<int>("ScrapeFailCount")
+                        .HasColumnType("integer");
+
                     b.Property<DateTimeOffset?>("ScrapedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -365,11 +354,41 @@ namespace RadLeads.Api.Migrations
                     b.ToTable("CompanyResearches");
                 });
 
+            modelBuilder.Entity("RadLeads.Api.Models.Dialer", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Dialers");
+                });
+
             modelBuilder.Entity("RadLeads.Api.Models.EmailAccount", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<string>("CalendarLink")
+                        .HasColumnType("text");
+
+                    b.Property<string>("CompanyName")
+                        .HasColumnType("text");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -388,6 +407,9 @@ namespace RadLeads.Api.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("FirstName")
+                        .HasColumnType("text");
+
                     b.Property<int?>("Health")
                         .HasColumnType("integer");
 
@@ -398,8 +420,17 @@ namespace RadLeads.Api.Migrations
                     b.Property<int>("ImapPort")
                         .HasColumnType("integer");
 
+                    b.Property<string>("LastName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Phone")
+                        .HasColumnType("text");
+
                     b.Property<string>("Provider")
                         .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Signature")
                         .HasColumnType("text");
 
                     b.Property<string>("SmtpHost")
@@ -411,6 +442,9 @@ namespace RadLeads.Api.Migrations
 
                     b.Property<string>("Status")
                         .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Title")
                         .HasColumnType("text");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
@@ -577,6 +611,9 @@ namespace RadLeads.Api.Migrations
                     b.Property<Guid?>("CampaignSendId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("CompanyId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -591,6 +628,9 @@ namespace RadLeads.Api.Migrations
 
                     b.Property<string>("MessageId")
                         .HasColumnType("text");
+
+                    b.Property<Guid?>("PersonId")
+                        .HasColumnType("uuid");
 
                     b.Property<int>("RetryCount")
                         .HasColumnType("integer");
@@ -622,7 +662,11 @@ namespace RadLeads.Api.Migrations
 
                     b.HasIndex("CampaignSendId");
 
+                    b.HasIndex("CompanyId");
+
                     b.HasIndex("EmailAccountId");
+
+                    b.HasIndex("PersonId");
 
                     b.ToTable("OutboundEmails");
                 });
@@ -751,15 +795,13 @@ namespace RadLeads.Api.Migrations
                     b.Navigation("Campaign");
                 });
 
-            modelBuilder.Entity("RadLeads.Api.Models.CompanyGenericEmail", b =>
+            modelBuilder.Entity("RadLeads.Api.Models.Company", b =>
                 {
-                    b.HasOne("RadLeads.Api.Models.Company", "Company")
-                        .WithMany("GenericEmails")
-                        .HasForeignKey("CompanyId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                    b.HasOne("RadLeads.Api.Models.Dialer", "AssignedTo")
+                        .WithMany("AssignedCompanies")
+                        .HasForeignKey("AssignedToId");
 
-                    b.Navigation("Company");
+                    b.Navigation("AssignedTo");
                 });
 
             modelBuilder.Entity("RadLeads.Api.Models.CompanyResearch", b =>
@@ -816,17 +858,29 @@ namespace RadLeads.Api.Migrations
                         .WithMany()
                         .HasForeignKey("CampaignSendId");
 
+                    b.HasOne("RadLeads.Api.Models.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId");
+
                     b.HasOne("RadLeads.Api.Models.EmailAccount", "EmailAccount")
                         .WithMany()
                         .HasForeignKey("EmailAccountId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("RadLeads.Api.Models.LeadPerson", "Person")
+                        .WithMany()
+                        .HasForeignKey("PersonId");
+
                     b.Navigation("Campaign");
 
                     b.Navigation("CampaignSend");
 
+                    b.Navigation("Company");
+
                     b.Navigation("EmailAccount");
+
+                    b.Navigation("Person");
                 });
 
             modelBuilder.Entity("RadLeads.Api.Models.WarmupActivity", b =>
@@ -847,11 +901,14 @@ namespace RadLeads.Api.Migrations
 
             modelBuilder.Entity("RadLeads.Api.Models.Company", b =>
                 {
-                    b.Navigation("GenericEmails");
-
                     b.Navigation("People");
 
                     b.Navigation("Research");
+                });
+
+            modelBuilder.Entity("RadLeads.Api.Models.Dialer", b =>
+                {
+                    b.Navigation("AssignedCompanies");
                 });
 
             modelBuilder.Entity("RadLeads.Api.Models.EmailAccount", b =>

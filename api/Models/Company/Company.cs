@@ -8,11 +8,15 @@ public class Company : BaseEntity
     public string? Summary { get; set; }
     public string? RecentNews { get; set; }
     public string? Phone { get; set; }
+    public string? Email { get; set; }
     public EnrichStatus EnrichStatus { get; set; } = EnrichStatus.NotEnriched;
     public DateTimeOffset? ResearchedAt { get; set; }
     public DateTimeOffset? EnrichedAt { get; set; }
 
+    public Dialer? AssignedTo { get; set; }
+    public DateTimeOffset? AssignedAt { get; set; }
+    public DialDisposition DialDisposition { get; set; } = DialDisposition.None;
+
     public List<LeadPerson> People { get; set; } = [];
-    public List<CompanyGenericEmail> GenericEmails { get; set; } = [];
     public CompanyResearch? Research { get; set; }
 }
