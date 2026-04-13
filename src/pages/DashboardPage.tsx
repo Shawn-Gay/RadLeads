@@ -139,6 +139,7 @@ export function DashboardPage() {
               researching:  'text-amber-600',
               not_enriched: 'text-muted-foreground',
               research_failed: 'text-red-600',
+              unreachable: 'text-orange-600',
             }[company.enrichStatus]
 
             return (

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { User, Plus, Check } from 'lucide-react'
+import { Plus, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAppContext } from '@/context/AppContext'
 import type { Dialer } from '@/types'
