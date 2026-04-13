@@ -1,5 +1,5 @@
 import { Phone, PhoneCall, Mail, MapPin } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, formatPhone } from '@/lib/utils'
 import { SOURCE_STYLES, SOURCE_LABELS, STATUS_STYLES, CALL_OUTCOME_STYLES, CALL_OUTCOME_LABELS } from './constants'
 import type { LeadPerson, Campaign, CallLog } from '@/types'
 
@@ -86,7 +86,7 @@ export function PersonRow({ person, campaigns, lastCall, attempts, isSelected, o
               className="text-xs font-mono text-emerald-600 dark:text-emerald-400 font-semibold hover:text-emerald-700 dark:hover:text-emerald-300 hover:underline truncate transition-colors"
               title={`Call ${person.phone}`}
             >
-              {person.phone}
+              {formatPhone(person.phone)}
             </a>
             <button
               onClick={e => { e.stopPropagation(); onCall() }}

@@ -104,7 +104,7 @@ export function useLeadsPage() {
   }, [showCampaignPicker])
 
   const totalPeople     = useMemo(() => companies.reduce((n, o) => n + o.people.length, 0), [companies])
-  const researchedCount = useMemo(() => companies.filter(o => o.enrichStatus === 'researched' || o.enrichStatus === 'enriched').length, [companies])
+  const researchedCount = useMemo(() => companies.filter(o => o.enrichStatus === 'researched').length, [companies])
   const enrichedCount   = useMemo(() => companies.filter(o => o.enrichStatus === 'enriched').length, [companies])
 
   const tabCounts = useMemo(() => ({
