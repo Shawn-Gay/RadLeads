@@ -1,8 +1,9 @@
-import { ChevronRight, Globe, Sparkles, RefreshCw, Loader2, ExternalLink, Phone, PhoneCall, Calendar, FileText } from 'lucide-react'
+import { ChevronRight, Globe, Sparkles, RefreshCw, Loader2, ExternalLink, PhoneCall, Calendar, FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { COMPANY_GRID, CALL_OUTCOME_STYLES, CALL_OUTCOME_LABELS } from './constants'
 import { EnrichBadge } from './EnrichBadge'
 import { PersonRow } from './PersonRow'
+import { PhoneNumber } from '@/components/leads/PhoneNumber'
 import type { Company, Campaign, CallLog, EnrichStatus } from '@/types'
 
 const PIPELINE_STAGES: { key: EnrichStatus[]; label: string }[] = [
@@ -80,13 +81,13 @@ export function CompanyRow({
           <div className="flex items-center gap-2 min-w-0">
             <p className="text-xs text-muted-foreground truncate cursor-pointer" onClick={onExpand}>{company.name}</p>
             {company.phone && (
-              <button
-                onClick={e => { e.stopPropagation(); onCallCompany() }}
-                className="shrink-0 flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold hover:text-emerald-700 dark:hover:text-emerald-300 hover:underline transition-colors"
+              <PhoneNumber
+                phone={company.phone}
+                size="xs"
                 title={`Call ${company.phone}`}
-              >
-                <Phone className="h-3 w-3" /> {company.phone}
-              </button>
+                onClick={e => { e.stopPropagation(); onCallCompany() }}
+                className="shrink-0 text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold hover:text-emerald-700 dark:hover:text-emerald-300 hover:underline transition-colors"
+              />
             )}
           </div>
         </div>

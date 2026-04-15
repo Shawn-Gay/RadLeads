@@ -24,7 +24,9 @@ public class MailKitEmailSendService(IConfiguration config) : IEmailSendService
             config["Brevo:SmtpHost"] ?? "smtp-relay.brevo.com",
             config.GetValue<int>("Brevo:SmtpPort", 465),
             SecureSocketOptions.SslOnConnect);
-        await smtp.AuthenticateAsync(config["Brevo:Login"], config["Brevo:ApiKey"]);
+        var login  = config["Brevo:Login"]  ?? throw new InvalidOperationException("Brevo:Login is not configured.");
+        var apiKey = config["Brevo:ApiKey"] ?? throw new InvalidOperationException("Brevo:ApiKey is not configured.");
+        await smtp.AuthenticateAsync(login, apiKey);
         await smtp.SendAsync(message);
         await smtp.DisconnectAsync(true);
 

@@ -1,5 +1,6 @@
 import { Phone, PhoneCall, Mail, MapPin } from 'lucide-react'
-import { cn, formatPhone } from '@/lib/utils'
+import { cn } from '@/lib/utils'
+import { PhoneNumber } from '@/components/leads/PhoneNumber'
 import { SOURCE_STYLES, SOURCE_LABELS, STATUS_STYLES, CALL_OUTCOME_STYLES, CALL_OUTCOME_LABELS } from './constants'
 import type { LeadPerson, Campaign, CallLog } from '@/types'
 
@@ -80,14 +81,13 @@ export function PersonRow({ person, campaigns, lastCall, attempts, isSelected, o
       <div className="w-40 shrink-0 flex items-center gap-2">
         {person.phone ? (
           <>
-            <a
-              href={`tel:${person.phone}`}
-              onClick={e => e.stopPropagation()}
-              className="text-xs font-mono text-emerald-600 dark:text-emerald-400 font-semibold hover:text-emerald-700 dark:hover:text-emerald-300 hover:underline truncate transition-colors"
+            <PhoneNumber
+              phone={person.phone}
+              icon={false}
+              size="sm"
               title={`Call ${person.phone}`}
-            >
-              {formatPhone(person.phone)}
-            </a>
+              className="text-emerald-600 dark:text-emerald-400 font-semibold hover:text-emerald-700 dark:hover:text-emerald-300 hover:underline truncate transition-colors"
+            />
             <button
               onClick={e => { e.stopPropagation(); onCall() }}
               title={`Call ${person.firstName}`}

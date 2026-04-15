@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import confetti from 'canvas-confetti'
 import { Phone, X, ChevronRight, ExternalLink } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { PhoneNumber } from '@/components/leads/PhoneNumber'
 import { logCall } from '@/services/callLogs'
 import type { Company, LeadPerson, CallOutcome } from '@/types'
 
@@ -169,10 +170,13 @@ export function DialerModal({ company, initialPersonId, onNext, onExit }: Dialer
               <p className="text-xs text-muted-foreground truncate">{person.title}</p>
             </div>
           </div>
-          <div className="mt-3 flex items-center gap-2 text-sm font-medium text-foreground">
-            <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
-            <span className="font-mono tracking-wide">{person.phone}</span>
-          </div>
+          <PhoneNumber
+            phone={person.phone!}
+            size="md"
+            iconColor="text-muted-foreground"
+            asLink={false}
+            className="mt-3 font-medium text-foreground"
+          />
         </div>
 
         {/* Call button (calling phase) */}

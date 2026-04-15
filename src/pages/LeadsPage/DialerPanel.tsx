@@ -5,7 +5,8 @@ import {
   PhoneCall, Snowflake, Calendar, Sparkles, ChevronDown, Mail, MailCheck, MailX,
   Clock, Trash2, UserCircle,
 } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, formatPhone } from '@/lib/utils'
+import { PhoneNumber } from '@/components/leads/PhoneNumber'
 import { fillTokens, CALL_TOKEN_HINTS, EMAIL_TOKEN_HINTS } from '@/lib/tokens'
 import { logCall } from '@/services/callLogs'
 import { sendFollowUpEmail } from '@/services/followUpEmails'
@@ -362,10 +363,7 @@ export function DialerPanel({
               {/* Company phone */}
               {company.phone && (
                 <div className="flex items-center justify-between bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 rounded-lg px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <Phone className="h-4 w-4 text-emerald-600" />
-                    <span className="text-sm font-mono font-medium text-foreground">{company.phone}</span>
-                  </div>
+                  <PhoneNumber phone={company.phone} size="md" iconColor="text-emerald-600" asLink={false} />
                   <button
                     onClick={() => handleCall('company')}
                     disabled={phase === 'outcome'}
@@ -415,10 +413,7 @@ export function DialerPanel({
 
                       {person.phone ? (
                         <div className="flex items-center justify-between bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 rounded-lg px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <Phone className="h-4 w-4 text-blue-600" />
-                            <span className="text-sm font-mono font-medium text-foreground">{person.phone}</span>
-                          </div>
+                          <PhoneNumber phone={person.phone} size="md" iconColor="text-blue-600" asLink={false} />
                           <button
                             onClick={() => handleCall('person')}
                             disabled={phase === 'outcome'}
@@ -622,7 +617,7 @@ export function DialerPanel({
                       <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded-full', CALL_OUTCOME_STYLES[log.outcome])}>
                         {CALL_OUTCOME_LABELS[log.outcome]}
                       </span>
-                      <span className="text-muted-foreground font-mono text-[10px]">{log.calledPhone}</span>
+                      <span className="text-muted-foreground font-mono text-[10px]">{formatPhone(log.calledPhone)}</span>
                       <span className="text-muted-foreground text-[10px]">
                         {new Date(log.calledAt).toLocaleDateString()}
                       </span>

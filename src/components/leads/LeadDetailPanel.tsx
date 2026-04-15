@@ -1,6 +1,7 @@
 import { X, Copy, Check, ExternalLink, Sparkles, MapPin, Mail } from 'lucide-react'
 import { useState } from 'react'
-import { cn, formatPhone } from '@/lib/utils'
+import { cn } from '@/lib/utils'
+import { PhoneNumber } from '@/components/leads/PhoneNumber'
 import { SOURCE_STYLES, SOURCE_LABELS, STATUS_STYLES } from '@/pages/LeadsPage/constants'
 import type { Company, LeadPerson, LeadEmail, Campaign, EmailStatus } from '@/types'
 
@@ -139,7 +140,12 @@ export function PersonDetailPanel({ company, person, campaigns, onClose }: Perso
             {person.phone && (
               <div className="flex items-start gap-2">
                 <span className="w-20 shrink-0 text-muted-foreground text-xs pt-0.5">Phone</span>
-                <span className="text-foreground font-medium flex-1 text-xs">{formatPhone(person.phone)}</span>
+                <PhoneNumber
+                  phone={person.phone}
+                  size="sm"
+                  iconColor="text-emerald-600 dark:text-emerald-400"
+                  className="flex-1 text-foreground font-semibold"
+                />
                 <CopyButton text={person.phone} />
               </div>
             )}
