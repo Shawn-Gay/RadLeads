@@ -3,7 +3,7 @@ import confetti from 'canvas-confetti'
 import {
   Phone, ArrowLeft, ChevronLeft, ChevronRight, ExternalLink, Pencil, Eye, Copy,
   PhoneCall, Snowflake, Calendar, Sparkles, ChevronDown, Mail, MailCheck, MailX,
-  Clock, Trash2, UserCircle,
+  Clock, Trash2, UserCircle, Plus,
 } from 'lucide-react'
 import { cn, formatPhone } from '@/lib/utils'
 import { PhoneNumber } from '@/components/leads/PhoneNumber'
@@ -35,6 +35,7 @@ interface DialerPanelProps {
   onExit: () => void
   onDrop: (companyId: string, disposition: DialDisposition) => void
   onSwitchDialer: () => void
+  onAssignMore: () => void
   onCallLogged?: () => void
 }
 
@@ -69,7 +70,7 @@ Would you have 15 minutes this week for a quick chat?`
 
 export function DialerPanel({
   company, index, total, initialPersonId, callLogs, attemptCount, score,
-  currentDialer, onPrev, onNext, onNextCold, onExit, onDrop, onSwitchDialer, onCallLogged,
+  currentDialer, onPrev, onNext, onNextCold, onExit, onDrop, onSwitchDialer, onAssignMore, onCallLogged,
 }: DialerPanelProps) {
   const initialIdx = company.people.findIndex(o => o.id === initialPersonId)
   const [personIndex, setPersonIndex]           = useState(Math.max(0, initialIdx))
@@ -285,6 +286,14 @@ export function DialerPanel({
           <span className="text-xs font-mono text-muted-foreground bg-muted px-2.5 py-1 rounded-md">
             {index + 1} / {total}
           </span>
+
+          <button
+            onClick={onAssignMore}
+            title="Assign more leads to your queue"
+            className="flex items-center gap-1 text-sm text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950 px-2.5 py-1.5 rounded-lg font-medium transition-colors"
+          >
+            <Plus className="h-3.5 w-3.5" /> Assign more
+          </button>
 
           <button
             onClick={onNext}

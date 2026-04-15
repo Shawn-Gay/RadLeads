@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
 import type { Company, Dialer, DialDisposition, LeadPerson, Campaign, EmailAccount, SenderPersonaInput, WarmupActivity, InboxMessage, ImportPersonInput, ImportCompanyInput } from '@/types'
-import { getLeads, importPeople, importCompanies, queueResearch, queueEnrich, assignLeads, dropLead } from '@/services/leads'
+import { getLeads, importPeople, importCompanies, queueResearch, queueEnrich, assignLeads, claimLead, dropLead } from '@/services/leads'
 import { getDialers, createDialer } from '@/services/dialers'
 import { getCampaigns, createCampaign, saveCampaign, enrollPeople, unenrollPerson } from '@/services/campaigns'
 import { getAccounts, getWarmupActivities, patchAccountStatus, deleteAccount, updateSenderInfo } from '@/services/accounts'
@@ -20,6 +20,7 @@ interface AppContextValue {
   enrollPeopleInCampaign: (personIds: string[], campaignId: string) => void
   removePersonFromCampaign: (personId: string, campaignId: string) => void
   assignCompaniesToDialer: (dialerId: string, count: number) => Promise<void>
+  claimCompanyForDialer: (companyId: string, dialerId: string) => Promise<Company>
   dropCompany: (companyId: string, disposition: DialDisposition) => Promise<void>
   campaigns: Campaign[]
   setCampaigns: React.Dispatch<React.SetStateAction<Campaign[]>>
@@ -146,6 +147,12 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
     })
   }
 
+  async function claimCompanyForDialer(companyId: string, dialerId: string): Promise<Company> {
+    const updated = await claimLead(companyId, dialerId)
+    setCompanies(prev => prev.map(o => o.id === updated.id ? updated : o))
+    return updated
+  }
+
   async function dropCompany(companyId: string, disposition: DialDisposition): Promise<void> {
     await dropLead(companyId, disposition)
     setCompanies(prev => prev.map(o =>
@@ -209,7 +216,7 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
       updateCompany, updatePerson,
       queueResearchCompanies, queueEnrichCompanies,
       enrollPeopleInCampaign, removePersonFromCampaign,
-      assignCompaniesToDialer, dropCompany,
+      assignCompaniesToDialer, claimCompanyForDialer, dropCompany,
       campaigns, setCampaigns, addCampaign, updateCampaign,
       accounts, setAccounts, addAccount, toggleAccountStatus, removeAccount, updateAccountSenderInfo,
       warmupActivities, setWarmupActivities,

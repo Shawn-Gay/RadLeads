@@ -10,7 +10,7 @@ export function useLeadsPage() {
     companies, campaigns,
     updateCompany, addFromImport, addFromCompanyImport,
     queueResearchCompanies, queueEnrichCompanies,
-    enrollPeopleInCampaign, dropCompany,
+    enrollPeopleInCampaign, claimCompanyForDialer, dropCompany,
     currentDialer, setCurrentDialer,
   } = useAppContext()
 
@@ -29,6 +29,8 @@ export function useLeadsPage() {
   // identity + assignment modals
   const [showIdentityModal, setShowIdentityModal]   = useState(false)
   const [showAssignModal, setShowAssignModal]       = useState(false)
+  // Pending click-to-call: company (and optional person) to open after identity is set
+  const [pendingClaim, setPendingClaim]             = useState<{ companyId: string; personId: string | null } | null>(null)
   const campaignPickerRef                           = useRef<HTMLDivElement>(null)
 
   // Fetch call logs on mount
@@ -200,12 +202,21 @@ export function useLeadsPage() {
   function handleIdentitySelected(dialer: import('@/types').Dialer) {
     setCurrentDialer(dialer)
     setShowIdentityModal(false)
-    // Queue will be empty for a new dialer, so prompt to assign
+    // If user got here via click-to-call on a specific lead, claim that one
+    if (pendingClaim) {
+      const { companyId, personId } = pendingClaim
+      setPendingClaim(null)
+      claimAndOpen(companyId, personId, dialer.id)
+      return
+    }
+    // Otherwise: new dialer with empty queue → prompt to batch assign
     setShowAssignModal(true)
   }
 
   function handleAssigned() {
     setShowAssignModal(false)
+    // If already mid-session, keep current company/position; the queue grows underneath.
+    if (dialerMode) return
     setDialerMode(true)
     setDialerIndex(0)
     setDialerPersonId(null)
@@ -217,12 +228,58 @@ export function useLeadsPage() {
     dialerNext()
   }
 
-  function openDialer(companyId: string, personId?: string) {
-    const idx = dialerQueue.findIndex(o => o.id === companyId)
-    if (idx === -1) return
+  async function claimAndOpen(companyId: string, personId: string | null, dialerId: string) {
+    try {
+      await claimCompanyForDialer(companyId, dialerId)
+    } catch (err) {
+      console.error('Claim failed:', err)
+      return
+    }
+    // Queue rebuilds via context state; jump in by company id once it lands.
     setDialerMode(true)
-    setDialerIndex(idx)
-    setDialerPersonId(personId ?? null)
+    setDialerPersonId(personId)
+    // dialerIndex will be resolved in an effect once the queue updates
+    setPendingDialerCompanyId(companyId)
+  }
+
+  // After a claim, wait for queue to include the company, then set the index
+  const [pendingDialerCompanyId, setPendingDialerCompanyId] = useState<string | null>(null)
+  useEffect(() => {
+    if (!pendingDialerCompanyId) return
+    const idx = dialerQueue.findIndex(o => o.id === pendingDialerCompanyId)
+    if (idx !== -1) {
+      setDialerIndex(idx)
+      setPendingDialerCompanyId(null)
+    }
+  }, [pendingDialerCompanyId, dialerQueue])
+
+  // Pin the current dialer company by id — keep the index aligned if the queue re-sorts
+  // (e.g. after a new batch is assigned mid-session, or scores change after a call).
+  const dialerCompanyId = dialerIndex !== null ? dialerQueue[dialerIndex]?.id ?? null : null
+  useEffect(() => {
+    if (!dialerMode || !dialerCompanyId) return
+    const idx = dialerQueue.findIndex(o => o.id === dialerCompanyId)
+    if (idx !== -1 && idx !== dialerIndex) setDialerIndex(idx)
+  }, [dialerQueue, dialerMode, dialerCompanyId, dialerIndex])
+
+  function openDialer(companyId: string, personId?: string) {
+    // No identity yet → stash the click and prompt for identity
+    if (!currentDialer) {
+      setPendingClaim({ companyId, personId: personId ?? null })
+      setShowIdentityModal(true)
+      return
+    }
+
+    const idx = dialerQueue.findIndex(o => o.id === companyId)
+    if (idx !== -1) {
+      setDialerMode(true)
+      setDialerIndex(idx)
+      setDialerPersonId(personId ?? null)
+      return
+    }
+
+    // Not in queue → claim it then open
+    claimAndOpen(companyId, personId ?? null, currentDialer.id)
   }
 
   function dialerPrev() {

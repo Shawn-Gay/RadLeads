@@ -47,10 +47,19 @@ export function LeadsPage() {
           onExit={state.dialerExit}
           onDrop={state.handleDropCompany}
           onSwitchDialer={() => state.setShowIdentityModal(true)}
+          onAssignMore={() => state.setShowAssignModal(true)}
           onCallLogged={state.refreshCallLogs}
         />
         {state.showIdentityModal && (
           <DialerIdentityModal onSelect={state.handleIdentitySelected} />
+        )}
+        {state.showAssignModal && state.currentDialer && (
+          <AssignLeadsModal
+            dialer={state.currentDialer}
+            currentAssignedCount={state.dialerQueue.length}
+            onAssigned={state.handleAssigned}
+            onCancel={() => state.setShowAssignModal(false)}
+          />
         )}
       </div>
     )

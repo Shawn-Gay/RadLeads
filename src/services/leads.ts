@@ -93,6 +93,14 @@ export async function assignLeads(dialerId: string, count: number): Promise<Comp
   return data.map(mapCompany)
 }
 
+export async function claimLead(companyId: string, dialerId: string): Promise<Company> {
+  const data = await apiFetch<any>(`/api/companies/${companyId}/claim`, {
+    method: 'POST',
+    body: JSON.stringify({ dialerId }),
+  })
+  return mapCompany(data)
+}
+
 export async function dropLead(companyId: string, disposition: DialDisposition): Promise<void> {
   await apiFetch(`/api/companies/${companyId}/drop`, {
     method: 'PATCH',

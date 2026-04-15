@@ -206,6 +206,39 @@ public class CompaniesController(AppDbContext db) : ControllerBase
         return Ok(companies.Select(ToDto));
     }
 
+    // Claim a single company for a dialer. Steals from another dialer if needed.
+    // Resets disposition so the lead is callable again.
+    [HttpPost("{id:guid}/claim")]
+    public async Task<IActionResult> Claim(Guid id, [FromBody] ClaimLeadRequest req)
+    {
+        var dialer = await db.Dialers.FindAsync(req.DialerId);
+        if (dialer is null) return NotFound("Dialer not found.");
+
+        var company = await db.Companies
+            .Include(o => o.AssignedTo)
+            .Include(o => o.People).ThenInclude(o => o.Emails)
+            .Include(o => o.People).ThenInclude(o => o.Campaigns)
+            .Include(o => o.Research)
+            .FirstOrDefaultAsync(o => o.Id == id);
+        if (company is null) return NotFound();
+
+        // Cap check — only count if not already assigned to this dialer
+        if (company.AssignedTo?.Id != req.DialerId)
+        {
+            var existing = await db.Companies.CountAsync(o =>
+                o.AssignedTo!.Id == req.DialerId && o.DialDisposition == DialDisposition.None);
+            const int cap = 50;
+            if (existing >= cap) return BadRequest($"Already at cap ({cap} assigned leads).");
+        }
+
+        company.AssignedTo      = dialer;
+        company.AssignedAt      = DateTimeOffset.UtcNow;
+        company.DialDisposition = DialDisposition.None;
+
+        await db.SaveChangesAsync();
+        return Ok(ToDto(company));
+    }
+
     // Drop a company: unassign and optionally set a disposition.
     [HttpPatch("{id:guid}/drop")]
     public async Task<IActionResult> Drop(Guid id, [FromBody] DropLeadRequest req)

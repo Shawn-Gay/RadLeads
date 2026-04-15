@@ -42,6 +42,7 @@ public record CompanyDto(
     List<LeadPersonDto> People);
 
 public record AssignLeadsRequest(Guid DialerId, int Count);
+public record ClaimLeadRequest(Guid DialerId);
 public record DropLeadRequest(DialDisposition Disposition);
 
 public record ImportPersonInput(

@@ -86,6 +86,7 @@ export function PersonRow({ person, campaigns, lastCall, attempts, isSelected, o
               icon={false}
               size="sm"
               title={`Call ${person.phone}`}
+              onClick={e => { e.stopPropagation(); onCall() }}
               className="text-emerald-600 dark:text-emerald-400 font-semibold hover:text-emerald-700 dark:hover:text-emerald-300 hover:underline truncate transition-colors"
             />
             <button
