@@ -1,14 +1,15 @@
 import { useState } from 'react'
-import { Plus, Check } from 'lucide-react'
+import { Plus, Check, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAppContext } from '@/context/AppContext'
 import type { Dialer } from '@/types'
 
 interface DialerIdentityModalProps {
   onSelect: (dialer: Dialer) => void
+  onDismiss?: () => void
 }
 
-export function DialerIdentityModal({ onSelect }: DialerIdentityModalProps) {
+export function DialerIdentityModal({ onSelect, onDismiss }: DialerIdentityModalProps) {
   const { dialers, addDialer } = useAppContext()
   const [newName, setNewName]   = useState('')
   const [creating, setCreating] = useState(false)
@@ -30,9 +31,16 @@ export function DialerIdentityModal({ onSelect }: DialerIdentityModalProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
       <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
 
-        <div className="px-6 pt-6 pb-4 border-b border-border">
-          <h2 className="text-base font-semibold text-foreground">Who's dialing?</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">Select your name to track your queue.</p>
+        <div className="px-6 pt-6 pb-4 border-b border-border flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-base font-semibold text-foreground">Who's dialing?</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">Select your name to track your queue.</p>
+          </div>
+          {onDismiss && (
+            <button onClick={onDismiss} className="text-muted-foreground hover:text-foreground transition-colors mt-0.5 shrink-0">
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
 
         <div className="p-4 space-y-1.5 max-h-64 overflow-y-auto">

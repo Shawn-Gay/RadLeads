@@ -33,6 +33,16 @@ public class DialersController(AppDbContext db) : ControllerBase
         return Ok(new { dialer.Id, dialer.Name, SelectedScriptId = (Guid?)null });
     }
 
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id)
+    {
+        var dialer = await db.Dialers.FindAsync(id);
+        if (dialer is null) return NotFound("Dialer not found.");
+        db.Dialers.Remove(dialer);
+        await db.SaveChangesAsync();
+        return NoContent();
+    }
+
     [HttpPost("{id:guid}/selected-script")]
     public async Task<IActionResult> SetSelectedScript(Guid id, [FromBody] SetSelectedScriptRequest req)
     {

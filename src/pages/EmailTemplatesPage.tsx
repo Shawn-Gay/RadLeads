@@ -270,14 +270,16 @@ export function EmailTemplatesPage() {
               </div>
 
               {/* Outcome assignment */}
-              {selected && (
-                <div className="space-y-2 pt-3 border-t border-border">
-                  <div>
-                    <label className="text-xs font-medium text-foreground">Assigned Call Outcomes</label>
-                    <p className="text-[11px] text-muted-foreground">
-                      Pick which outcomes this template should appear for. Click the star to mark it as the default for that outcome — it'll auto-load in the dialer.
-                    </p>
-                  </div>
+              <div className="space-y-2 pt-3 border-t border-border">
+                <div>
+                  <label className="text-xs font-medium text-foreground">Assigned Call Outcomes</label>
+                  <p className="text-[11px] text-muted-foreground">
+                    {isNew
+                      ? 'Save the template first to assign call outcomes.'
+                      : 'Pick which outcomes this template should appear for. Click the star to mark it as the default — it\'ll auto-load in the dialer.'}
+                  </p>
+                </div>
+                {selected && (
                   <div className="flex flex-wrap gap-2">
                     {ALL_OUTCOMES.map(outcome => {
                       const assignment = selected.outcomeAssignments.find(o => o.outcome === outcome)
@@ -313,8 +315,8 @@ export function EmailTemplatesPage() {
                       )
                     })}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           )}
         </div>

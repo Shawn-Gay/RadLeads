@@ -5,15 +5,16 @@ import { useNavigate } from '@tanstack/react-router'
 import { PhoneNumber } from '@/components/leads/PhoneNumber'
 import { fillTokens } from '@/lib/tokens'
 import { logCall } from '@/services/callLogs'
-import { sendFollowUpEmail } from '@/services/followUpEmails'
+import { sendFollowUpEmail, getFollowUpEmailsByCompany } from '@/services/followUpEmails'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
 import { useAppContext } from '@/context/AppContext'
 import { useDialerContext } from '@/context/DialerContext'
 import { FOLLOW_UP_DEFAULT_ON } from '@/pages/LeadsPage/constants'
-import type { CallOutcome, LeadPerson } from '@/types'
+import type { CallOutcome, LeadPerson, FollowUpEmail } from '@/types'
 import type { TokenData } from '@/lib/tokens'
 import { DialerHeader }      from './DialerHeader'
 import { CallHistoryCard }   from './CallHistoryCard'
+import { EmailHistoryCard }  from './EmailHistoryCard'
 import { ScriptCard }        from './ScriptCard'
 import { ObjectionPlaybook } from './ObjectionPlaybook'
 import { OutcomeSection }    from './OutcomeSection'
@@ -73,6 +74,11 @@ function DialerPageContent() {
   const companyLogs  = callLogsByCompany.get(company.id) ?? []
   const score        = scoreByCompany.get(company.id) ?? 0
   const attemptCount = companyLogs.length
+
+  const [followUpEmails, setFollowUpEmails] = useState<FollowUpEmail[]>([])
+  useEffect(() => {
+    getFollowUpEmailsByCompany(company.id).then(setFollowUpEmails).catch(() => {})
+  }, [company.id])
 
   // Reset per-call state when company changes
   useEffect(() => {
@@ -197,6 +203,7 @@ function DialerPageContent() {
       setSaving(false)
     }
     refreshCallLogs()
+    getFollowUpEmailsByCompany(company.id).then(setFollowUpEmails).catch(() => {})
     if (advance) {
       dialerNext()
     } else {
@@ -413,6 +420,7 @@ function DialerPageContent() {
             )}
 
             <CallHistoryCard callLogs={companyLogs} />
+            <EmailHistoryCard emails={followUpEmails} />
 
             {!company.phone && company.people.every(o => !o.phone) && phase === 'ready' && (
               <div className="rounded-xl border border-border bg-card p-5 text-center">

@@ -22,5 +22,7 @@ public record FollowUpEmailDto(
     OutboundEmailStatus Status,
     DateTimeOffset? SentAt,
     DateTimeOffset CreatedAt,
-    string? ErrorMessage
+    string? ErrorMessage,
+    int OpenCount,
+    int ClickCount
 );

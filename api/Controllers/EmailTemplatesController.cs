@@ -85,10 +85,14 @@ public class EmailTemplatesController(AppDbContext db) : ControllerBase
         var existing = t.OutcomeAssignments.FirstOrDefault(o => o.Outcome == input.Outcome);
         if (existing is null)
         {
-            existing = new EmailTemplateOutcome { Outcome = input.Outcome, Template = t };
-            t.OutcomeAssignments.Add(existing);
+            var assignment = new EmailTemplateOutcome { Outcome = input.Outcome, IsDefault = input.IsDefault };
+            db.EmailTemplateOutcomes.Add(assignment);
+            db.Entry(assignment).Property("EmailTemplateId").CurrentValue = id;
         }
-        existing.IsDefault = input.IsDefault;
+        else
+        {
+            existing.IsDefault = input.IsDefault;
+        }
 
         if (input.IsDefault)
         {
@@ -102,6 +106,7 @@ public class EmailTemplatesController(AppDbContext db) : ControllerBase
         }
 
         await db.SaveChangesAsync();
+        t = await db.EmailTemplates.Include(o => o.OutcomeAssignments).FirstAsync(o => o.Id == id);
         return Ok(ToDto(t));
     }
 

@@ -29,4 +29,9 @@ public class OutboundEmail : BaseEntity
 
     /// <summary>Template this email was sent from (for per-template analytics).</summary>
     public EmailTemplate? EmailTemplate { get; set; }
+
+    /// <summary>Unique token embedded in the tracking pixel and click-wrap URLs.</summary>
+    public Guid TrackingId { get; set; } = Guid.NewGuid();
+
+    public List<EmailEvent> Events { get; set; } = [];
 }

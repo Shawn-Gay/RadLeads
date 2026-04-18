@@ -11,3 +11,7 @@ export async function createDialer(name: string): Promise<Dialer> {
     body: JSON.stringify({ name }),
   })
 }
+
+export async function deleteDialer(id: string): Promise<void> {
+  await apiFetch<void>(`/api/dialers/${id}`, { method: 'DELETE' })
+}

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Trash2, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react'
+import { Trash2, Loader2, CheckCircle2, AlertTriangle, Plus, X } from 'lucide-react'
 import { apiFetch } from '@/lib/api'
 import { useAppContext } from '@/context/AppContext'
 
@@ -35,6 +35,103 @@ const defaultOptions: PurgeOptions = {
   warmupActivities: true,
   outboundEmails: true,
   emailAccounts: false,
+}
+
+function DialersSection() {
+  const { dialers, addDialer, removeDialer } = useAppContext()
+  const [newName, setNewName]   = useState('')
+  const [adding, setAdding]     = useState(false)
+  const [showNew, setShowNew]   = useState(false)
+  const [deleting, setDeleting] = useState<string | null>(null)
+
+  async function handleAdd() {
+    const trimmed = newName.trim()
+    if (!trimmed) return
+    setAdding(true)
+    try {
+      await addDialer(trimmed)
+      setNewName('')
+      setShowNew(false)
+    } finally {
+      setAdding(false)
+    }
+  }
+
+  async function handleDelete(id: string) {
+    setDeleting(id)
+    try {
+      await removeDialer(id)
+    } finally {
+      setDeleting(null)
+    }
+  }
+
+  return (
+    <div className="rounded-lg border border-border bg-card p-5 space-y-4">
+      <div>
+        <h2 className="text-sm font-semibold text-foreground">Dialers</h2>
+        <p className="text-xs text-muted-foreground mt-1">Manage dialer identities used to track call queues.</p>
+      </div>
+
+      <div className="space-y-1.5">
+        {dialers.length === 0 && (
+          <p className="text-xs text-muted-foreground italic">No dialers yet.</p>
+        )}
+        {dialers.map(o => (
+          <div key={o.id} className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-muted/50 border border-border">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 flex items-center justify-center text-xs font-bold shrink-0">
+                {o.name[0].toUpperCase()}
+              </div>
+              <span className="text-sm text-foreground">{o.name}</span>
+            </div>
+            <button
+              onClick={() => handleDelete(o.id)}
+              disabled={deleting === o.id}
+              className="text-muted-foreground hover:text-red-500 transition-colors disabled:opacity-50"
+            >
+              {deleting === o.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {showNew ? (
+        <div className="flex gap-2">
+          <input
+            autoFocus
+            value={newName}
+            onChange={e => setNewName(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') { setShowNew(false); setNewName('') } }}
+            placeholder="Dialer name"
+            className="flex-1 text-sm bg-muted border border-border rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500 text-foreground placeholder:text-muted-foreground"
+          />
+          <button
+            onClick={handleAdd}
+            disabled={!newName.trim() || adding}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {adding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+            Add
+          </button>
+          <button
+            onClick={() => { setShowNew(false); setNewName('') }}
+            className="px-3 py-1.5 text-xs rounded-lg border border-border hover:bg-muted transition-colors text-muted-foreground"
+          >
+            Cancel
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={() => setShowNew(true)}
+          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          Add dialer
+        </button>
+      )}
+    </div>
+  )
 }
 
 export function SettingsPage() {
@@ -95,6 +192,7 @@ export function SettingsPage() {
 
       <div className="flex-1 overflow-y-auto p-6">
         <div className="max-w-lg space-y-6">
+          <DialersSection />
           {/* Purge Section */}
           <div className="rounded-lg border border-border bg-card p-5 space-y-4">
             <div>

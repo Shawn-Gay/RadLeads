@@ -74,7 +74,9 @@ public class FollowUpEmailsController(AppDbContext db) : ControllerBase
                 o.Status,
                 o.SentAt,
                 o.CreatedAt,
-                o.ErrorMessage))
+                o.ErrorMessage,
+                o.Events.Count(e => e.EventType == EmailEventType.Opened),
+                o.Events.Count(e => e.EventType == EmailEventType.Clicked)))
             .ToListAsync();
 
         return Ok(emails);

@@ -22,6 +22,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<ScriptFeedback> ScriptFeedback => Set<ScriptFeedback>();
     public DbSet<EmailTemplate> EmailTemplates => Set<EmailTemplate>();
     public DbSet<EmailTemplateOutcome> EmailTemplateOutcomes => Set<EmailTemplateOutcome>();
+    public DbSet<EmailEvent> EmailEvents => Set<EmailEvent>();
 
     // Auto-set UpdatedAt on every save
     public override Task<int> SaveChangesAsync(CancellationToken ct = default)
@@ -45,6 +46,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         config.Properties<AccountStatus>().HaveConversion<string>();
         config.Properties<WarmupAction>().HaveConversion<string>();
         config.Properties<OutboundEmailStatus>().HaveConversion<string>();
+        config.Properties<EmailEventType>().HaveConversion<string>();
         config.Properties<CallOutcome>().HaveConversion<string>();
         config.Properties<DialDisposition>().HaveConversion<string>();
     }
@@ -151,6 +153,18 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .WithMany(o => o.OutboundEmails)
             .HasForeignKey("EmailTemplateId")
             .IsRequired(false);
+
+        // EmailEvent → OutboundEmail (cascade delete)
+        model.Entity<EmailEvent>()
+            .HasOne(o => o.OutboundEmail)
+            .WithMany(o => o.Events)
+            .HasForeignKey(o => o.OutboundEmailId)
+            .IsRequired();
+
+        // Unique index on OutboundEmail.TrackingId for fast pixel/click lookups
+        model.Entity<OutboundEmail>()
+            .HasIndex(o => o.TrackingId)
+            .IsUnique();
 
         // EmailTemplateOutcome → EmailTemplate (cascade)
         model.Entity<EmailTemplateOutcome>()

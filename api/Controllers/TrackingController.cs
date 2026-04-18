@@ -2,6 +2,7 @@ using System.Text;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RadLeads.Api.Data;
+using RadLeads.Api.Models;
 
 namespace RadLeads.Api.Controllers;
 
@@ -53,5 +54,53 @@ public class TrackingController(AppDbContext db) : ControllerBase
         catch { return BadRequest(); }
 
         return Redirect(decoded);
+    }
+
+    // GET /track/email/open/{trackingId} — follow-up email open pixel
+    [HttpGet("/track/email/open/{trackingId:guid}")]
+    public async Task<IActionResult> EmailOpen(Guid trackingId)
+    {
+        var email = await db.OutboundEmails
+            .FirstOrDefaultAsync(o => o.TrackingId == trackingId);
+
+        if (email is not null)
+        {
+            db.EmailEvents.Add(new EmailEvent
+            {
+                OutboundEmailId = email.Id,
+                EventType       = EmailEventType.Opened,
+                OccurredAt      = DateTimeOffset.UtcNow,
+                UserAgent       = Request.Headers.UserAgent.ToString(),
+            });
+            await db.SaveChangesAsync();
+        }
+
+        return File(TransparentGif, "image/gif");
+    }
+
+    // GET /track/email/click/{trackingId}?url={encoded} — follow-up email link click
+    [HttpGet("/track/email/click/{trackingId:guid}")]
+    public async Task<IActionResult> EmailClick(Guid trackingId, [FromQuery] string url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            return BadRequest();
+
+        var email = await db.OutboundEmails
+            .FirstOrDefaultAsync(o => o.TrackingId == trackingId);
+
+        if (email is not null)
+        {
+            db.EmailEvents.Add(new EmailEvent
+            {
+                OutboundEmailId = email.Id,
+                EventType       = EmailEventType.Clicked,
+                OccurredAt      = DateTimeOffset.UtcNow,
+                ClickedUrl      = url,
+                UserAgent       = Request.Headers.UserAgent.ToString(),
+            });
+            await db.SaveChangesAsync();
+        }
+
+        return Redirect(url);
     }
 }

@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
 import type { Company, Dialer, DialDisposition, LeadPerson, Campaign, EmailAccount, SenderPersonaInput, WarmupActivity, InboxMessage, ImportPersonInput, ImportCompanyInput, Script, EmailTemplate, CallOutcome } from '@/types'
 import { getLeads, importPeople, importCompanies, queueResearch, queueEnrich, assignLeads, claimLead, dropLead } from '@/services/leads'
-import { getDialers, createDialer } from '@/services/dialers'
+import { getDialers, createDialer, deleteDialer } from '@/services/dialers'
 import { getCampaigns, createCampaign, saveCampaign, enrollPeople, unenrollPerson } from '@/services/campaigns'
 import { getAccounts, getWarmupActivities, patchAccountStatus, deleteAccount, updateSenderInfo } from '@/services/accounts'
 import { getInbox, markMessageRead } from '@/services/inbox'
@@ -52,6 +52,7 @@ interface AppContextValue {
   currentDialer: Dialer | null
   setCurrentDialer: (dialer: Dialer | null) => void
   addDialer: (name: string) => Promise<Dialer>
+  removeDialer: (id: string) => Promise<void>
   // Scripts
   scripts: Script[]
   currentScript: Script | null
@@ -116,6 +117,12 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
     const dialer = await createDialer(name)
     setDialers(prev => [...prev, dialer])
     return dialer
+  }
+
+  async function removeDialer(id: string): Promise<void> {
+    await deleteDialer(id)
+    setDialers(prev => prev.filter(o => o.id !== id))
+    if (currentDialer?.id === id) setCurrentDialerState(null)
   }
 
   async function selectScriptForCurrentDialer(scriptId: string | null): Promise<void> {
@@ -328,7 +335,7 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
       accounts, setAccounts, addAccount, toggleAccountStatus, removeAccount, updateAccountSenderInfo,
       warmupActivities, setWarmupActivities,
       inbox, setInbox, markRead,
-      dialers, currentDialer, setCurrentDialer, addDialer,
+      dialers, currentDialer, setCurrentDialer, addDialer, removeDialer,
       scripts, currentScript, selectScriptForCurrentDialer,
       addScript, editScript, archiveScript, removeScript,
       emailTemplates, addEmailTemplate, editEmailTemplate,

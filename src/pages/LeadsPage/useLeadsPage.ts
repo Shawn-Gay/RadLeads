@@ -31,11 +31,11 @@ export function useLeadsPage() {
   const [expandedIds, setExpandedIds]               = useState<Set<string>>(new Set())
   const [checkedIds, setCheckedIds]                 = useState<Set<string>>(new Set())
   const [selected, setSelected]                     = useState<{ companyId: string; personId: string } | null>(null)
-  const [activeTab, setActiveTab]                   = useState<TabKey>(currentDialer ? 'my_assigned' : 'enriched')
+  const [activeTab, setActiveTab]                   = useState<TabKey>('my_assigned')
   const [search, setSearch]                         = useState('')
   const [showImport, setShowImport]                 = useState(false)
   const [showCampaignPicker, setShowCampaignPicker] = useState(false)
-  const [sortKey, setSortKey]                       = useState<SortKey | null>(currentDialer ? null : 'assigned')
+  const [sortKey, setSortKey]                       = useState<SortKey | null>(null)
   const [sortDir, setSortDir]                       = useState<SortDir>('asc')
   const campaignPickerRef                           = useRef<HTMLDivElement>(null)
 

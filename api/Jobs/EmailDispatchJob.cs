@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using Quartz;
 using RadLeads.Api.Data;
@@ -7,10 +8,14 @@ using RadLeads.Api.Services;
 namespace RadLeads.Api.Jobs;
 
 [DisallowConcurrentExecution]
-public class EmailDispatchJob(
+public partial class EmailDispatchJob(
     IServiceScopeFactory scopeFactory,
+    IConfiguration configuration,
     ILogger<EmailDispatchJob> logger) : IJob
 {
+    [GeneratedRegex(@"href=""(https?://[^""]+)""", RegexOptions.IgnoreCase)]
+    private static partial Regex LinkPattern();
+
     public async Task Execute(IJobExecutionContext context)
     {
         await using var scope = scopeFactory.CreateAsyncScope();
@@ -50,6 +55,9 @@ public class EmailDispatchJob(
 
             try
             {
+                var baseUrl = configuration["TrackingBaseUrl"]?.TrimEnd('/') ?? string.Empty;
+                InjectTracking(email, baseUrl);
+
                 var password = encryption.Decrypt(account.EncryptedPassword);
                 var messageId = await emailService.SendAsync(email, account, password);
 
@@ -74,5 +82,27 @@ public class EmailDispatchJob(
 
             await db.SaveChangesAsync(context.CancellationToken);
         }
+    }
+
+    static void InjectTracking(OutboundEmail email, string baseUrl)
+    {
+        if (string.IsNullOrEmpty(baseUrl)) return;
+
+        var tid = email.TrackingId;
+
+        // Rewrite <a href="https://..."> links
+        email.Body = LinkPattern().Replace(email.Body, m =>
+        {
+            var original = m.Groups[1].Value;
+            var encoded  = Uri.EscapeDataString(original);
+            return $@"href=""{baseUrl}/track/email/click/{tid}?url={encoded}""";
+        });
+
+        // Append 1x1 open-tracking pixel before </body> (or at end)
+        var pixel = $@"<img src=""{baseUrl}/track/email/open/{tid}"" width=""1"" height=""1"" style=""display:none"" />";
+        var closeBody = email.Body.LastIndexOf("</body>", StringComparison.OrdinalIgnoreCase);
+        email.Body = closeBody >= 0
+            ? email.Body.Insert(closeBody, pixel)
+            : email.Body + pixel;
     }
 }

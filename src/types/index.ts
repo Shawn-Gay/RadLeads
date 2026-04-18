@@ -77,6 +77,23 @@ export interface CallLog {
   scriptId?: string
   dialerId?: string
 }
+export type OutboundEmailStatus = 'Pending' | 'Sent' | 'Failed'
+
+export interface FollowUpEmail {
+  id: string
+  personId?: string
+  companyId?: string
+  emailAccountId: string
+  toAddress: string
+  subject: string
+  status: OutboundEmailStatus
+  sentAt?: string
+  createdAt: string
+  errorMessage?: string
+  openCount: number
+  clickCount: number
+}
+
 export type EmailStatus = 'verified' | 'bounced' | 'unknown'
 export type EnrichStatus = 'not_enriched' | 'researching' | 'researched' | 'enriching' | 'enriched' | 'research_failed' | 'unreachable'
 export type CampaignStatus = 'active' | 'draft' | 'paused'
