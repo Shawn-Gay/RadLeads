@@ -120,7 +120,7 @@ function NavGroupSection({
 }
 
 function DialerModals() {
-  const { showIdentityModal, showAssignModal, setShowAssignModal, handleIdentitySelected, handleAssigned, dialerQueue } = useDialerContext()
+  const { showIdentityModal, setShowIdentityModal, showAssignModal, setShowAssignModal, handleIdentitySelected, handleAssigned, dialerQueue } = useDialerContext()
   const { currentDialer } = useAppContext()
 
   return (
