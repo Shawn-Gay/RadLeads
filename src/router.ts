@@ -13,6 +13,10 @@ import { CampaignEditPage } from "@/pages/CampaignEditPage"
 import { InboxPage } from "@/pages/InboxPage"
 import { AccountsPage } from "@/pages/AccountsPage"
 import { SettingsPage } from "@/pages/SettingsPage"
+import { ScriptsPage } from "@/pages/ScriptsPage"
+import { EmailTemplatesPage } from "@/pages/EmailTemplatesPage"
+import { AnalyticsPage } from "@/pages/AnalyticsPage"
+import { DialerPage } from "@/pages/DialerPage"
 
 const rootRoute = createRootRoute({ component: Layout })
 
@@ -64,6 +68,30 @@ const settingsRoute = createRoute({
   component: SettingsPage,
 })
 
+const scriptsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/scripts",
+  component: ScriptsPage,
+})
+
+const emailTemplatesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/email-templates",
+  component: EmailTemplatesPage,
+})
+
+const analyticsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/analytics",
+  component: AnalyticsPage,
+})
+
+const dialerRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/dialer",
+  component: DialerPage,
+})
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   campaignsRoute,
@@ -73,6 +101,10 @@ const routeTree = rootRoute.addChildren([
   inboxRoute,
   accountsRoute,
   settingsRoute,
+  scriptsRoute,
+  emailTemplatesRoute,
+  analyticsRoute,
+  dialerRoute,
 ])
 
 export const router = createRouter({ routeTree })

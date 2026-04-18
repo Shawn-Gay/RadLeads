@@ -1,4 +1,4 @@
-import { ChevronRight, Globe, Sparkles, RefreshCw, Loader2, ExternalLink, PhoneCall, Calendar, FileText } from 'lucide-react'
+import { ChevronRight, Globe, Sparkles, RefreshCw, Loader2, ExternalLink, PhoneCall, Calendar, FileText, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { COMPANY_GRID, CALL_OUTCOME_STYLES, CALL_OUTCOME_LABELS } from './constants'
 import { EnrichBadge } from './EnrichBadge'
@@ -15,6 +15,7 @@ const PIPELINE_STAGES: { key: EnrichStatus[]; label: string }[] = [
 interface CompanyRowProps {
   company: Company
   campaigns: Campaign[]
+  assignedToName: string | null
   callLogsByPerson: Map<string, CallLog>
   attemptsByPerson: Map<string, number>
   companyCallLogs: CallLog[]
@@ -31,7 +32,7 @@ interface CompanyRowProps {
 }
 
 export function CompanyRow({
-  company, campaigns, callLogsByPerson, attemptsByPerson, companyCallLogs,
+  company, campaigns, assignedToName, callLogsByPerson, attemptsByPerson, companyCallLogs,
   isExpanded, isChecked, selectedPersonId,
   onExpand, onCheck, onSelectPerson,
   onResearch, onEnrich, onCallCompany, onCall,
@@ -111,6 +112,21 @@ export function CompanyRow({
               </span>
             )
           })() : (
+            <span className="text-[10px] text-muted-foreground">—</span>
+          )}
+        </div>
+
+        {/* Assigned To */}
+        <div className="min-w-0">
+          {assignedToName ? (
+            <span
+              className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-muted text-foreground/80 max-w-full"
+              title={`Assigned to ${assignedToName}`}
+            >
+              <User className="h-3 w-3 shrink-0" />
+              <span className="truncate">{assignedToName}</span>
+            </span>
+          ) : (
             <span className="text-[10px] text-muted-foreground">—</span>
           )}
         </div>

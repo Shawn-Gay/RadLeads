@@ -1,10 +1,20 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
-import type { Company, Dialer, DialDisposition, LeadPerson, Campaign, EmailAccount, SenderPersonaInput, WarmupActivity, InboxMessage, ImportPersonInput, ImportCompanyInput } from '@/types'
+import type { Company, Dialer, DialDisposition, LeadPerson, Campaign, EmailAccount, SenderPersonaInput, WarmupActivity, InboxMessage, ImportPersonInput, ImportCompanyInput, Script, EmailTemplate, CallOutcome } from '@/types'
 import { getLeads, importPeople, importCompanies, queueResearch, queueEnrich, assignLeads, claimLead, dropLead } from '@/services/leads'
 import { getDialers, createDialer } from '@/services/dialers'
 import { getCampaigns, createCampaign, saveCampaign, enrollPeople, unenrollPerson } from '@/services/campaigns'
 import { getAccounts, getWarmupActivities, patchAccountStatus, deleteAccount, updateSenderInfo } from '@/services/accounts'
 import { getInbox, markMessageRead } from '@/services/inbox'
+import { getScripts, createScript as apiCreateScript, updateScript as apiUpdateScript, archiveScript as apiArchiveScript, deleteScript as apiDeleteScript, setDialerSelectedScript } from '@/services/scripts'
+import {
+  getEmailTemplates,
+  createEmailTemplate as apiCreateEmailTemplate,
+  updateEmailTemplate as apiUpdateEmailTemplate,
+  archiveEmailTemplate as apiArchiveEmailTemplate,
+  deleteEmailTemplate as apiDeleteEmailTemplate,
+  assignEmailTemplateOutcome as apiAssignEmailTemplateOutcome,
+  unassignEmailTemplateOutcome as apiUnassignEmailTemplateOutcome,
+} from '@/services/emailTemplates'
 
 const DIALER_STORAGE_KEY = 'radleads:currentDialerId'
 
@@ -42,6 +52,22 @@ interface AppContextValue {
   currentDialer: Dialer | null
   setCurrentDialer: (dialer: Dialer | null) => void
   addDialer: (name: string) => Promise<Dialer>
+  // Scripts
+  scripts: Script[]
+  currentScript: Script | null
+  selectScriptForCurrentDialer: (scriptId: string | null) => Promise<void>
+  addScript: (name: string, body: string) => Promise<Script>
+  editScript: (id: string, name: string, body: string) => Promise<Script>
+  archiveScript: (id: string, archived?: boolean) => Promise<void>
+  removeScript: (id: string) => Promise<void>
+  // Email Templates
+  emailTemplates: EmailTemplate[]
+  addEmailTemplate: (name: string, subject: string, body: string) => Promise<EmailTemplate>
+  editEmailTemplate: (id: string, name: string, subject: string, body: string) => Promise<EmailTemplate>
+  archiveEmailTemplate: (id: string, archived?: boolean) => Promise<void>
+  removeEmailTemplate: (id: string) => Promise<void>
+  assignEmailTemplateToOutcome: (id: string, outcome: CallOutcome, isDefault: boolean) => Promise<void>
+  unassignEmailTemplateFromOutcome: (id: string, outcome: CallOutcome) => Promise<void>
 }
 
 const AppContext = createContext<AppContextValue | null>(null)
@@ -54,6 +80,12 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
   const [inbox, setInbox]                   = useState<InboxMessage[]>([])
   const [dialers, setDialers]               = useState<Dialer[]>([])
   const [currentDialer, setCurrentDialerState] = useState<Dialer | null>(() => null)
+  const [scripts, setScripts]               = useState<Script[]>([])
+  const [emailTemplates, setEmailTemplates] = useState<EmailTemplate[]>([])
+
+  const currentScript = currentDialer?.selectedScriptId
+    ? scripts.find(o => o.id === currentDialer.selectedScriptId) ?? null
+    : null
 
   useEffect(() => {
     getLeads().then(setCompanies)
@@ -61,6 +93,8 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
     getAccounts().then(setAccounts)
     getWarmupActivities().then(setWarmupActivities)
     getInbox().then(setInbox)
+    getScripts().then(setScripts)
+    getEmailTemplates().then(setEmailTemplates)
     getDialers().then(list => {
       setDialers(list)
       // Restore current dialer from localStorage
@@ -82,6 +116,79 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
     const dialer = await createDialer(name)
     setDialers(prev => [...prev, dialer])
     return dialer
+  }
+
+  async function selectScriptForCurrentDialer(scriptId: string | null): Promise<void> {
+    if (!currentDialer) return
+    const updated = await setDialerSelectedScript(currentDialer.id, scriptId)
+    const next: Dialer = { ...currentDialer, selectedScriptId: updated.selectedScriptId }
+    setCurrentDialerState(next)
+    setDialers(prev => prev.map(o => o.id === next.id ? next : o))
+  }
+
+  async function addScript(name: string, body: string): Promise<Script> {
+    const s = await apiCreateScript(name, body)
+    setScripts(prev => [...prev, s].sort((a, b) => a.name.localeCompare(b.name)))
+    return s
+  }
+
+  async function editScript(id: string, name: string, body: string): Promise<Script> {
+    const s = await apiUpdateScript(id, name, body)
+    setScripts(prev => prev.map(o => o.id === id ? s : o))
+    return s
+  }
+
+  async function archiveScript(id: string, archived = true): Promise<void> {
+    const s = await apiArchiveScript(id, archived)
+    setScripts(prev => prev.map(o => o.id === id ? s : o))
+  }
+
+  async function removeScript(id: string): Promise<void> {
+    await apiDeleteScript(id)
+    setScripts(prev => prev.filter(o => o.id !== id))
+    if (currentDialer?.selectedScriptId === id) {
+      const next: Dialer = { ...currentDialer, selectedScriptId: null }
+      setCurrentDialerState(next)
+      setDialers(prev => prev.map(o => o.id === next.id ? next : o))
+    }
+  }
+
+  async function addEmailTemplate(name: string, subject: string, body: string): Promise<EmailTemplate> {
+    const t = await apiCreateEmailTemplate(name, subject, body)
+    setEmailTemplates(prev => [...prev, t].sort((a, b) => a.name.localeCompare(b.name)))
+    return t
+  }
+
+  async function editEmailTemplate(id: string, name: string, subject: string, body: string): Promise<EmailTemplate> {
+    const t = await apiUpdateEmailTemplate(id, name, subject, body)
+    setEmailTemplates(prev => prev.map(o => o.id === id ? t : o))
+    return t
+  }
+
+  async function archiveEmailTemplate(id: string, archived = true): Promise<void> {
+    const t = await apiArchiveEmailTemplate(id, archived)
+    setEmailTemplates(prev => prev.map(o => o.id === id ? t : o))
+  }
+
+  async function removeEmailTemplate(id: string): Promise<void> {
+    await apiDeleteEmailTemplate(id)
+    setEmailTemplates(prev => prev.filter(o => o.id !== id))
+  }
+
+  async function assignEmailTemplateToOutcome(id: string, outcome: CallOutcome, isDefault: boolean): Promise<void> {
+    const updated = await apiAssignEmailTemplateOutcome(id, outcome, isDefault)
+    // If marked default, refresh others for that outcome (server cleared their IsDefault)
+    if (isDefault) {
+      const fresh = await getEmailTemplates(true)
+      setEmailTemplates(fresh)
+    } else {
+      setEmailTemplates(prev => prev.map(o => o.id === id ? updated : o))
+    }
+  }
+
+  async function unassignEmailTemplateFromOutcome(id: string, outcome: CallOutcome): Promise<void> {
+    const updated = await apiUnassignEmailTemplateOutcome(id, outcome)
+    setEmailTemplates(prev => prev.map(o => o.id === id ? updated : o))
   }
 
   async function addFromImport(people: ImportPersonInput[]): Promise<void> {
@@ -222,6 +329,11 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
       warmupActivities, setWarmupActivities,
       inbox, setInbox, markRead,
       dialers, currentDialer, setCurrentDialer, addDialer,
+      scripts, currentScript, selectScriptForCurrentDialer,
+      addScript, editScript, archiveScript, removeScript,
+      emailTemplates, addEmailTemplate, editEmailTemplate,
+      archiveEmailTemplate, removeEmailTemplate,
+      assignEmailTemplateToOutcome, unassignEmailTemplateFromOutcome,
     }}>
       {children}
     </AppContext.Provider>

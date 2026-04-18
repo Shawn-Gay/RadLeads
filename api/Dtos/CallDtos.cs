@@ -7,7 +7,9 @@ public record LogCallInput(
     Guid? CompanyId,
     string CalledPhone,
     CallOutcome Outcome,
-    string? Notes);
+    string? Notes,
+    Guid? ScriptId = null,
+    Guid? DialerId = null);
 
 public record CallLogDto(
     Guid Id,
@@ -16,4 +18,6 @@ public record CallLogDto(
     string CalledPhone,
     CallOutcome Outcome,
     string? Notes,
-    DateTimeOffset CalledAt);
+    DateTimeOffset CalledAt,
+    Guid? ScriptId = null,
+    Guid? DialerId = null);

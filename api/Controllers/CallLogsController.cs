@@ -22,7 +22,9 @@ public class CallLogsController(AppDbContext db) : ControllerBase
                 o.CalledPhone,
                 o.Outcome,
                 o.Notes,
-                o.CalledAt))
+                o.CalledAt,
+                EF.Property<Guid?>(o, "ScriptId"),
+                EF.Property<Guid?>(o, "DialerId")))
             .ToListAsync();
         return Ok(logs);
     }
@@ -40,7 +42,9 @@ public class CallLogsController(AppDbContext db) : ControllerBase
                 o.CalledPhone,
                 o.Outcome,
                 o.Notes,
-                o.CalledAt))
+                o.CalledAt,
+                EF.Property<Guid?>(o, "ScriptId"),
+                EF.Property<Guid?>(o, "DialerId")))
             .ToListAsync();
         return Ok(logs);
     }
@@ -58,7 +62,9 @@ public class CallLogsController(AppDbContext db) : ControllerBase
                 o.CalledPhone,
                 o.Outcome,
                 o.Notes,
-                o.CalledAt))
+                o.CalledAt,
+                EF.Property<Guid?>(o, "ScriptId"),
+                EF.Property<Guid?>(o, "DialerId")))
             .ToListAsync();
         return Ok(logs);
     }
@@ -91,6 +97,20 @@ public class CallLogsController(AppDbContext db) : ControllerBase
             log.Company = company;
         }
 
+        if (input.ScriptId is not null)
+        {
+            var script = await db.Scripts.FindAsync(input.ScriptId.Value);
+            if (script is null) return NotFound("Script not found.");
+            log.Script = script;
+        }
+
+        if (input.DialerId is not null)
+        {
+            var dialer = await db.Dialers.FindAsync(input.DialerId.Value);
+            if (dialer is null) return NotFound("Dialer not found.");
+            log.Dialer = dialer;
+        }
+
         db.CallLogs.Add(log);
         await db.SaveChangesAsync();
         return Ok(ToDto(log));
@@ -98,13 +118,14 @@ public class CallLogsController(AppDbContext db) : ControllerBase
 
     // ── helpers ──────────────────────────────────────────────────────────────
 
-    // Use on tracked entities after SaveChanges (nav properties are set)
     static CallLogDto ToDto(CallLog o) => new(
         o.Id,
-        o.Person != null ? o.Person.Id : null,
-        o.Company != null ? o.Company.Id : null,
+        o.Person?.Id,
+        o.Company?.Id,
         o.CalledPhone,
         o.Outcome,
         o.Notes,
-        o.CalledAt);
+        o.CalledAt,
+        o.Script?.Id,
+        o.Dialer?.Id);
 }

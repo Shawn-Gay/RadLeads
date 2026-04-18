@@ -8,7 +8,8 @@ public record SendFollowUpEmailRequest(
     Guid? PersonId,
     string ToEmail,
     string Subject,
-    string Body
+    string Body,
+    Guid? EmailTemplateId = null
 );
 
 public record FollowUpEmailDto(

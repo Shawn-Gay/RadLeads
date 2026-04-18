@@ -8,6 +8,8 @@ export interface LogCallInput {
   outcome: CallOutcome
   notes?: string
   callbackAt?: string
+  scriptId?: string
+  dialerId?: string
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -21,6 +23,8 @@ function mapCallLog(raw: any): CallLog {
     notes:       raw.notes ?? undefined,
     calledAt:    raw.calledAt,
     callbackAt:  raw.callbackAt ?? undefined,
+    scriptId:    raw.scriptId ?? undefined,
+    dialerId:    raw.dialerId ?? undefined,
   }
 }
 

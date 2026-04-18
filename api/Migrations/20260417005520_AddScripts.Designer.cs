@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using RadLeads.Api.Data;
@@ -11,9 +12,11 @@ using RadLeads.Api.Data;
 namespace RadLeads.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260417005520_AddScripts")]
+    partial class AddScripts
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -476,75 +479,6 @@ namespace RadLeads.Api.Migrations
                     b.ToTable("EmailAccounts");
                 });
 
-            modelBuilder.Entity("RadLeads.Api.Models.EmailTemplate", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Body")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTimeOffset?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("IsArchived")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Subject")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("EmailTemplates");
-                });
-
-            modelBuilder.Entity("RadLeads.Api.Models.EmailTemplateOutcome", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTimeOffset?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("EmailTemplateId")
-                        .HasColumnType("uuid");
-
-                    b.Property<bool>("IsDefault")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Outcome")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("EmailTemplateId");
-
-                    b.HasIndex("Outcome");
-
-                    b.ToTable("EmailTemplateOutcomes");
-                });
-
             modelBuilder.Entity("RadLeads.Api.Models.InboxReply", b =>
                 {
                     b.Property<Guid>("Id")
@@ -707,9 +641,6 @@ namespace RadLeads.Api.Migrations
                     b.Property<Guid>("EmailAccountId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid?>("EmailTemplateId")
-                        .HasColumnType("uuid");
-
                     b.Property<string>("ErrorMessage")
                         .HasColumnType("text");
 
@@ -752,8 +683,6 @@ namespace RadLeads.Api.Migrations
                     b.HasIndex("CompanyId");
 
                     b.HasIndex("EmailAccountId");
-
-                    b.HasIndex("EmailTemplateId");
 
                     b.HasIndex("PersonId");
 
@@ -998,17 +927,6 @@ namespace RadLeads.Api.Migrations
                     b.Navigation("SelectedScript");
                 });
 
-            modelBuilder.Entity("RadLeads.Api.Models.EmailTemplateOutcome", b =>
-                {
-                    b.HasOne("RadLeads.Api.Models.EmailTemplate", "Template")
-                        .WithMany("OutcomeAssignments")
-                        .HasForeignKey("EmailTemplateId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Template");
-                });
-
             modelBuilder.Entity("RadLeads.Api.Models.InboxReply", b =>
                 {
                     b.HasOne("RadLeads.Api.Models.CampaignSend", "Send")
@@ -1062,10 +980,6 @@ namespace RadLeads.Api.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("RadLeads.Api.Models.EmailTemplate", "EmailTemplate")
-                        .WithMany("OutboundEmails")
-                        .HasForeignKey("EmailTemplateId");
-
                     b.HasOne("RadLeads.Api.Models.LeadPerson", "Person")
                         .WithMany()
                         .HasForeignKey("PersonId");
@@ -1077,8 +991,6 @@ namespace RadLeads.Api.Migrations
                     b.Navigation("Company");
 
                     b.Navigation("EmailAccount");
-
-                    b.Navigation("EmailTemplate");
 
                     b.Navigation("Person");
                 });
@@ -1137,13 +1049,6 @@ namespace RadLeads.Api.Migrations
             modelBuilder.Entity("RadLeads.Api.Models.EmailAccount", b =>
                 {
                     b.Navigation("WarmupActivities");
-                });
-
-            modelBuilder.Entity("RadLeads.Api.Models.EmailTemplate", b =>
-                {
-                    b.Navigation("OutboundEmails");
-
-                    b.Navigation("OutcomeAssignments");
                 });
 
             modelBuilder.Entity("RadLeads.Api.Models.LeadPerson", b =>

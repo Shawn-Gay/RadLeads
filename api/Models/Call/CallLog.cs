@@ -13,4 +13,6 @@ public class CallLog : BaseEntity
 
     public LeadPerson? Person { get; set; }
     public Company? Company { get; set; }
+    public Script? Script { get; set; }
+    public Dialer? Dialer { get; set; }
 }

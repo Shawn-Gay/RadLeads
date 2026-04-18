@@ -49,11 +49,12 @@ export const CALL_OUTCOME_STYLES: Record<CallOutcome, string> = {
   Interested:     'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400',
 }
 
-export type TabKey = 'all' | 'not_enriched' | 'researched' | 'enriched' | 'research_failed' | 'in_campaign' | 'callbacks'
+export type TabKey = 'all' | 'my_assigned' | 'not_enriched' | 'researched' | 'enriched' | 'research_failed' | 'in_campaign' | 'callbacks'
 
 export const TABS: { key: TabKey; label: string }[] = [
-  { key: 'all',             label: 'All' },
+  { key: 'my_assigned',     label: 'My Assigned' },
   { key: 'callbacks',       label: 'Callbacks Due' },
+  { key: 'all',             label: 'All' },
   { key: 'not_enriched',    label: 'Not Started' },
   { key: 'researched',      label: 'Researched' },
   { key: 'enriched',        label: 'Enriched' },
@@ -62,26 +63,33 @@ export const TABS: { key: TabKey; label: string }[] = [
 ]
 
 // Grid column layout for company header + company rows
-export const COMPANY_GRID = 'grid-cols-[32px_32px_1fr_80px_120px_144px_72px]'
+// Columns: expand | checkbox | domain/company | people | last call | assigned to | stage | action
+export const COMPANY_GRID = 'grid-cols-[32px_32px_1fr_80px_120px_128px_144px_72px]'
 
-// ─── Follow-up email defaults ────────────────────────────────────────────────
+// Stage ordering weight — used by sort
+export const STAGE_ORDER: Record<EnrichStatus, number> = {
+  not_enriched:    0,
+  researching:     1,
+  researched:      2,
+  enriching:       3,
+  enriched:        4,
+  research_failed: 5,
+  unreachable:     6,
+}
 
-export const DEFAULT_FOLLOW_UP_SUBJECT = 'Quick follow-up — {{company}}'
+export type SortKey = 'domain' | 'people' | 'lastCall' | 'assigned' | 'stage'
+export type SortDir = 'asc' | 'desc'
 
-export const DEFAULT_FOLLOW_UP_EMAIL = `Hi {{firstName}},
+// Default direction the first time a column is sorted
+export const DEFAULT_SORT_DIR: Record<SortKey, SortDir> = {
+  domain:   'asc',
+  people:   'desc',
+  lastCall: 'desc',
+  assigned: 'asc',
+  stage:    'asc',
+}
 
-I just tried reaching you at {{company}}. {{painPoint}}
-
-We help businesses like {{company}} build a consistent pipeline of qualified leads using AI-driven outreach.
-
-Would you have 15 minutes this week for a quick chat?
-
-{{meetingLink}}
-
-Best,
-Shawn`
-
-// Outcomes that default the follow-up email toggle ON
+// Outcomes that auto-toggle the follow-up email ON when a template is assigned
 export const FOLLOW_UP_DEFAULT_ON: Set<CallOutcome> = new Set([
   'LeftVoicemail', 'LeftMessage', 'NoAnswer', 'Connected',
 ])

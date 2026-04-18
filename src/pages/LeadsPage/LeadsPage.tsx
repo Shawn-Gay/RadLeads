@@ -1,5 +1,5 @@
 import { useRef } from 'react'
-import { Search } from 'lucide-react'
+import { Search, ArrowUp, ArrowDown } from 'lucide-react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { PersonDetailPanel } from '@/components/leads/LeadDetailPanel'
 import { ImportCSVDialog } from '@/components/leads/ImportCSVDialog'
@@ -8,10 +8,36 @@ import { useLeadsPage } from './useLeadsPage'
 import { LeadsToolbar } from './LeadsToolbar'
 import { LeadsTabs } from './LeadsTabs'
 import { CompanyRow } from './CompanyRow'
-import { DialerPanel } from './DialerPanel'
-import { DialerIdentityModal } from './DialerIdentityModal'
-import { AssignLeadsModal } from './AssignLeadsModal'
 import { COMPANY_GRID } from './constants'
+import type { SortKey } from './constants'
+
+interface SortHeaderProps {
+  label: string
+  sortKey: SortKey
+  active: SortKey | null
+  dir: 'asc' | 'desc'
+  onClick: (key: SortKey) => void
+  className?: string
+}
+function SortHeader({ label, sortKey, active, dir, onClick, className }: SortHeaderProps) {
+  const isActive = active === sortKey
+  return (
+    <button
+      type="button"
+      onClick={() => onClick(sortKey)}
+      className={cn(
+        'flex items-center gap-1 text-xs font-medium text-left transition-colors',
+        isActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
+        className,
+      )}
+    >
+      {label}
+      {isActive && (dir === 'asc'
+        ? <ArrowUp   className="h-3 w-3" />
+        : <ArrowDown className="h-3 w-3" />)}
+    </button>
+  )
+}
 
 export function LeadsPage() {
   const state = useLeadsPage()
@@ -26,44 +52,6 @@ export function LeadsPage() {
     measureElement: el => el.getBoundingClientRect().height,
     overscan: 8,
   })
-
-  // Full-page Dialer mode
-  if (state.dialerMode && state.dialerCompany) {
-    const companyLogs = state.callLogsByCompany.get(state.dialerCompany.id) ?? []
-    return (
-      <div className="flex flex-col h-full overflow-hidden">
-        <DialerPanel
-          company={state.dialerCompany}
-          index={state.dialerIndex ?? 0}
-          total={state.dialerQueue.length}
-          initialPersonId={state.dialerPersonId}
-          callLogs={companyLogs}
-          attemptCount={companyLogs.length}
-          score={state.scoreByCompany.get(state.dialerCompany.id) ?? 0}
-          currentDialer={state.currentDialer}
-          onPrev={state.dialerPrev}
-          onNext={state.dialerNext}
-          onNextCold={state.dialerNextCold}
-          onExit={state.dialerExit}
-          onDrop={state.handleDropCompany}
-          onSwitchDialer={() => state.setShowIdentityModal(true)}
-          onAssignMore={() => state.setShowAssignModal(true)}
-          onCallLogged={state.refreshCallLogs}
-        />
-        {state.showIdentityModal && (
-          <DialerIdentityModal onSelect={state.handleIdentitySelected} />
-        )}
-        {state.showAssignModal && state.currentDialer && (
-          <AssignLeadsModal
-            dialer={state.currentDialer}
-            currentAssignedCount={state.dialerQueue.length}
-            onAssigned={state.handleAssigned}
-            onCancel={() => state.setShowAssignModal(false)}
-          />
-        )}
-      </div>
-    )
-  }
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -95,7 +83,6 @@ export function LeadsPage() {
         onTabChange={state.setActiveTab}
       />
 
-      {/* Search */}
       <div className="bg-card border-b border-border px-5 py-2 shrink-0">
         <div className="relative max-w-sm">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
@@ -109,12 +96,10 @@ export function LeadsPage() {
         </div>
       </div>
 
-      {/* Table + detail panel */}
       <div className="relative flex flex-1 min-h-0 overflow-hidden">
         <div ref={scrollRef} className="flex-1 overflow-auto">
-          <div className="min-w-[720px]">
+          <div className="min-w-[820px]">
 
-            {/* Header row */}
             <div className={cn('sticky top-0 z-10 bg-muted border-b border-border grid px-3 py-2 items-center', COMPANY_GRID)}>
               <div />
               <div className='grid items-center'>
@@ -125,14 +110,14 @@ export function LeadsPage() {
                   className="w-4 h-4 rounded accent-blue-600 dark:[color-scheme:dark] cursor-pointer"
                 />
               </div>
-              <div className="text-xs font-medium text-muted-foreground pl-1">Domain / Company</div>
-              <div className="text-xs font-medium text-muted-foreground">People</div>
-              <div className="text-xs font-medium text-muted-foreground">Last Call</div>
-              <div className="text-xs font-medium text-muted-foreground">Stage</div>
+              <SortHeader label="Domain / Company" sortKey="domain"   active={state.sortKey} dir={state.sortDir} onClick={state.toggleSort} className="pl-1" />
+              <SortHeader label="People"           sortKey="people"   active={state.sortKey} dir={state.sortDir} onClick={state.toggleSort} />
+              <SortHeader label="Last Call"        sortKey="lastCall" active={state.sortKey} dir={state.sortDir} onClick={state.toggleSort} />
+              <SortHeader label="Assigned To"      sortKey="assigned" active={state.sortKey} dir={state.sortDir} onClick={state.toggleSort} />
+              <SortHeader label="Stage"            sortKey="stage"    active={state.sortKey} dir={state.sortDir} onClick={state.toggleSort} />
               <div />
             </div>
 
-            {/* Virtual rows */}
             {state.filtered.length === 0 ? (
               <div className="px-4 py-16 text-center">
                 <p className="text-sm text-muted-foreground">No leads match your filter.</p>
@@ -158,6 +143,7 @@ export function LeadsPage() {
                       <CompanyRow
                         company={company}
                         campaigns={state.campaigns}
+                        assignedToName={company.assignedToId ? state.dialerNameById.get(company.assignedToId) ?? null : null}
                         callLogsByPerson={state.callLogsByPerson}
                         attemptsByPerson={state.attemptsByPerson}
                         companyCallLogs={state.callLogsByCompany.get(company.id) ?? []}
@@ -184,7 +170,6 @@ export function LeadsPage() {
           </div>
         </div>
 
-        {/* Detail panel */}
         {state.selectedDetail && (
           <PersonDetailPanel
             company={state.selectedDetail.company}
@@ -195,22 +180,6 @@ export function LeadsPage() {
         )}
       </div>
 
-      {/* Dialer identity modal */}
-      {state.showIdentityModal && (
-        <DialerIdentityModal onSelect={state.handleIdentitySelected} />
-      )}
-
-      {/* Assign leads modal */}
-      {state.showAssignModal && state.currentDialer && (
-        <AssignLeadsModal
-          dialer={state.currentDialer}
-          currentAssignedCount={state.dialerQueue.length}
-          onAssigned={state.handleAssigned}
-          onCancel={() => state.setShowAssignModal(false)}
-        />
-      )}
-
-      {/* Import dialog */}
       {state.showImport && (
         <ImportCSVDialog
           onClose={() => state.setShowImport(false)}

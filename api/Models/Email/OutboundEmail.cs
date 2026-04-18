@@ -26,4 +26,7 @@ public class OutboundEmail : BaseEntity
     /// <summary>Set when this email was queued from the dialer follow-up flow.</summary>
     public Company? Company { get; set; }
     public LeadPerson? Person { get; set; }
+
+    /// <summary>Template this email was sent from (for per-template analytics).</summary>
+    public EmailTemplate? EmailTemplate { get; set; }
 }

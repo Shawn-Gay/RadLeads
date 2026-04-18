@@ -1,98 +1,43 @@
-import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { useAppContext } from '@/context/AppContext'
-import { getAllCallLogs } from '@/services/callLogs'
-import { scoreCompany } from '@/lib/scoring'
-import type { Company, CallLog } from '@/types'
-import type { TabKey } from './constants'
+import { useDialerContext } from '@/context/DialerContext'
+import type { Company } from '@/types'
+import type { TabKey, SortKey, SortDir } from './constants'
+import { STAGE_ORDER, DEFAULT_SORT_DIR } from './constants'
 
 export function useLeadsPage() {
   const {
     companies, campaigns,
     updateCompany, addFromImport, addFromCompanyImport,
     queueResearchCompanies, queueEnrichCompanies,
-    enrollPeopleInCampaign, claimCompanyForDialer, dropCompany,
-    currentDialer, setCurrentDialer,
+    enrollPeopleInCampaign,
+    currentDialer, dialers,
   } = useAppContext()
+
+  const {
+    callLogsByCompany, callLogsByPerson, attemptsByPerson, scoreByCompany,
+    showIdentityModal, setShowIdentityModal,
+    showAssignModal, setShowAssignModal,
+    startDialer, openDialer,
+    dialerQueue,
+  } = useDialerContext()
+
+  const dialerNameById = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const d of dialers) map.set(d.id, d.name)
+    return map
+  }, [dialers])
 
   const [expandedIds, setExpandedIds]               = useState<Set<string>>(new Set())
   const [checkedIds, setCheckedIds]                 = useState<Set<string>>(new Set())
   const [selected, setSelected]                     = useState<{ companyId: string; personId: string } | null>(null)
-  const [activeTab, setActiveTab]                   = useState<TabKey>('all')
+  const [activeTab, setActiveTab]                   = useState<TabKey>(currentDialer ? 'my_assigned' : 'enriched')
   const [search, setSearch]                         = useState('')
   const [showImport, setShowImport]                 = useState(false)
   const [showCampaignPicker, setShowCampaignPicker] = useState(false)
-  // dialer: index into `dialerQueue`, null = closed
-  const [dialerMode, setDialerMode]                 = useState(false)
-  const [dialerIndex, setDialerIndex]               = useState<number | null>(null)
-  const [dialerPersonId, setDialerPersonId]         = useState<string | null>(null)
-  const [callLogs, setCallLogs]                     = useState<CallLog[]>([])
-  // identity + assignment modals
-  const [showIdentityModal, setShowIdentityModal]   = useState(false)
-  const [showAssignModal, setShowAssignModal]       = useState(false)
-  // Pending click-to-call: company (and optional person) to open after identity is set
-  const [pendingClaim, setPendingClaim]             = useState<{ companyId: string; personId: string | null } | null>(null)
+  const [sortKey, setSortKey]                       = useState<SortKey | null>(currentDialer ? null : 'assigned')
+  const [sortDir, setSortDir]                       = useState<SortDir>('asc')
   const campaignPickerRef                           = useRef<HTMLDivElement>(null)
-
-  // Fetch call logs on mount
-  const refreshCallLogs = useCallback(() => {
-    getAllCallLogs().then(setCallLogs).catch(err => console.error('Failed to load call logs:', err))
-  }, [])
-
-  useEffect(() => { refreshCallLogs() }, [refreshCallLogs])
-
-  // Lookup: personId → most recent call log
-  const callLogsByPerson = useMemo(() => {
-    const map = new Map<string, CallLog>()
-    for (const log of callLogs) {
-      if (!log.personId) continue
-      const existing = map.get(log.personId)
-      if (!existing || log.calledAt > existing.calledAt) {
-        map.set(log.personId, log)
-      }
-    }
-    return map
-  }, [callLogs])
-
-  // Lookup: companyId → all call logs (newest first)
-  const callLogsByCompany = useMemo(() => {
-    const map = new Map<string, CallLog[]>()
-    for (const log of callLogs) {
-      if (!log.companyId) continue
-      const arr = map.get(log.companyId) ?? []
-      arr.push(log)
-      map.set(log.companyId, arr)
-    }
-    for (const arr of map.values()) {
-      arr.sort((a, b) => b.calledAt.localeCompare(a.calledAt))
-    }
-    return map
-  }, [callLogs])
-
-  // Attempt counts: personId → number of calls
-  const attemptsByPerson = useMemo(() => {
-    const map = new Map<string, number>()
-    for (const log of callLogs) {
-      if (!log.personId) continue
-      map.set(log.personId, (map.get(log.personId) ?? 0) + 1)
-    }
-    return map
-  }, [callLogs])
-
-  // Companies with pending callbacks (callbackAt in the future or today, newest log has outcome=CallBack)
-  const callbackCompanyIds = useMemo(() => {
-    const now = new Date().toISOString()
-    const ids = new Set<string>()
-    for (const [companyId, logs] of callLogsByCompany) {
-      const latest = logs[0] // already sorted newest first
-      if (latest?.outcome === 'CallBack') {
-        // Due if callbackAt is not set (user didn't pick a date) or callbackAt <= now
-        if (!latest.callbackAt || latest.callbackAt <= now) {
-          ids.add(companyId)
-        }
-      }
-    }
-    return ids
-  }, [callLogsByCompany])
 
   useEffect(() => {
     if (!showCampaignPicker) return
@@ -109,19 +54,34 @@ export function useLeadsPage() {
   const researchedCount = useMemo(() => companies.filter(o => o.enrichStatus === 'researched').length, [companies])
   const enrichedCount   = useMemo(() => companies.filter(o => o.enrichStatus === 'enriched').length, [companies])
 
+  // Companies with pending callbacks
+  const callbackCompanyIds = useMemo(() => {
+    const now = new Date().toISOString()
+    const ids = new Set<string>()
+    for (const [companyId, logs] of callLogsByCompany) {
+      const latest = logs[0]
+      if (latest?.outcome === 'CallBack' && (!latest.callbackAt || latest.callbackAt <= now)) {
+        ids.add(companyId)
+      }
+    }
+    return ids
+  }, [callLogsByCompany])
+
   const tabCounts = useMemo(() => ({
     all:             companies.length,
+    my_assigned:     currentDialer ? companies.filter(o => o.assignedToId === currentDialer.id).length : 0,
     callbacks:       [...callbackCompanyIds].filter(id => companies.some(o => o.id === id)).length,
     not_enriched:    companies.filter(o => o.enrichStatus === 'not_enriched' || o.enrichStatus === 'researching').length,
     researched:      companies.filter(o => o.enrichStatus === 'researched'   || o.enrichStatus === 'enriching').length,
     enriched:        companies.filter(o => o.enrichStatus === 'enriched').length,
     research_failed: companies.filter(o => o.enrichStatus === 'research_failed').length,
     in_campaign:     companies.filter(o => o.people.some(p => p.campaignIds.length > 0)).length,
-  }), [companies, callbackCompanyIds])
+  }), [companies, callbackCompanyIds, currentDialer])
 
   const filtered = useMemo(() => {
     let list = companies
-    if      (activeTab === 'callbacks')     list = list.filter(o => callbackCompanyIds.has(o.id))
+    if      (activeTab === 'my_assigned')   list = currentDialer ? list.filter(o => o.assignedToId === currentDialer.id) : []
+    else if (activeTab === 'callbacks')     list = list.filter(o => callbackCompanyIds.has(o.id))
     else if (activeTab === 'not_enriched')  list = list.filter(o => o.enrichStatus === 'not_enriched' || o.enrichStatus === 'researching')
     else if (activeTab === 'researched')    list = list.filter(o => o.enrichStatus === 'researched'   || o.enrichStatus === 'enriching')
     else if (activeTab === 'in_campaign')   list = list.filter(o => o.people.some(p => p.campaignIds.length > 0))
@@ -141,28 +101,54 @@ export function useLeadsPage() {
       )
     }
     return list
-  }, [companies, activeTab, search, callbackCompanyIds])
+  }, [companies, activeTab, search, callbackCompanyIds, currentDialer])
 
-  // Dialer queue: current dialer's assigned companies, sorted by priority score
-  const dialerQueue = useMemo(() => {
-    const assigned = currentDialer
-      ? companies.filter(o => o.assignedToId === currentDialer.id && o.dialDisposition === 'None')
-      : []
-    return [...assigned].sort((a, b) => {
-      const sa = scoreCompany(a, callLogsByCompany.get(a.id) ?? [])
-      const sb = scoreCompany(b, callLogsByCompany.get(b.id) ?? [])
-      return sb - sa
+  const sortedFiltered = useMemo(() => {
+    if (!sortKey) return filtered
+    const dir = sortDir === 'asc' ? 1 : -1
+    const arr = [...filtered]
+    arr.sort((a, b) => {
+      let cmp = 0
+      if (sortKey === 'domain') {
+        cmp = a.domain.localeCompare(b.domain)
+      } else if (sortKey === 'people') {
+        cmp = a.people.length - b.people.length
+      } else if (sortKey === 'lastCall') {
+        const la = callLogsByCompany.get(a.id)?.[0]?.calledAt ?? ''
+        const lb = callLogsByCompany.get(b.id)?.[0]?.calledAt ?? ''
+        if (!la && !lb) cmp = 0
+        else if (!la)   return 1
+        else if (!lb)   return -1
+        else cmp = la.localeCompare(lb)
+      } else if (sortKey === 'assigned') {
+        const na = a.assignedToId ? (dialerNameById.get(a.assignedToId) ?? '') : ''
+        const nb = b.assignedToId ? (dialerNameById.get(b.assignedToId) ?? '') : ''
+        if (!na && !nb) cmp = 0
+        // Unassigned floats to top on asc, bottom on desc
+        else if (!na)   return -1 * dir
+        else if (!nb)   return  1 * dir
+        else cmp = na.localeCompare(nb)
+      } else if (sortKey === 'stage') {
+        cmp = STAGE_ORDER[a.enrichStatus] - STAGE_ORDER[b.enrichStatus]
+      }
+      if (cmp === 0) cmp = a.domain.localeCompare(b.domain)
+      return cmp * dir
     })
-  }, [companies, currentDialer, callLogsByCompany])
+    return arr
+  }, [filtered, sortKey, sortDir, callLogsByCompany, dialerNameById])
 
-  // Score lookup for display
-  const scoreByCompany = useMemo(() => {
-    const map = new Map<string, number>()
-    for (const c of companies) {
-      map.set(c.id, scoreCompany(c, callLogsByCompany.get(c.id) ?? []))
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) {
+      if (sortDir === DEFAULT_SORT_DIR[key]) {
+        setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
+      } else {
+        setSortKey(null)
+      }
+    } else {
+      setSortKey(key)
+      setSortDir(DEFAULT_SORT_DIR[key])
     }
-    return map
-  }, [companies, callLogsByCompany])
+  }
 
   const selectedDetail = useMemo(() => {
     if (!selected) return null
@@ -184,140 +170,6 @@ export function useLeadsPage() {
   const checkedEnrichedCount = useMemo(() =>
     [...checkedIds].filter(id => companies.find(o => o.id === id)?.enrichStatus === 'enriched').length,
     [checkedIds, companies])
-
-  function startDialer() {
-    if (!currentDialer) {
-      setShowIdentityModal(true)
-      return
-    }
-    if (dialerQueue.length === 0) {
-      setShowAssignModal(true)
-      return
-    }
-    setDialerMode(true)
-    setDialerIndex(0)
-    setDialerPersonId(null)
-  }
-
-  function handleIdentitySelected(dialer: import('@/types').Dialer) {
-    setCurrentDialer(dialer)
-    setShowIdentityModal(false)
-    // If user got here via click-to-call on a specific lead, claim that one
-    if (pendingClaim) {
-      const { companyId, personId } = pendingClaim
-      setPendingClaim(null)
-      claimAndOpen(companyId, personId, dialer.id)
-      return
-    }
-    // Otherwise: new dialer with empty queue → prompt to batch assign
-    setShowAssignModal(true)
-  }
-
-  function handleAssigned() {
-    setShowAssignModal(false)
-    // If already mid-session, keep current company/position; the queue grows underneath.
-    if (dialerMode) return
-    setDialerMode(true)
-    setDialerIndex(0)
-    setDialerPersonId(null)
-  }
-
-  async function handleDropCompany(companyId: string, disposition: import('@/types').DialDisposition) {
-    await dropCompany(companyId, disposition)
-    // Move to next after drop
-    dialerNext()
-  }
-
-  async function claimAndOpen(companyId: string, personId: string | null, dialerId: string) {
-    try {
-      await claimCompanyForDialer(companyId, dialerId)
-    } catch (err) {
-      console.error('Claim failed:', err)
-      return
-    }
-    // Queue rebuilds via context state; jump in by company id once it lands.
-    setDialerMode(true)
-    setDialerPersonId(personId)
-    // dialerIndex will be resolved in an effect once the queue updates
-    setPendingDialerCompanyId(companyId)
-  }
-
-  // After a claim, wait for queue to include the company, then set the index
-  const [pendingDialerCompanyId, setPendingDialerCompanyId] = useState<string | null>(null)
-  useEffect(() => {
-    if (!pendingDialerCompanyId) return
-    const idx = dialerQueue.findIndex(o => o.id === pendingDialerCompanyId)
-    if (idx !== -1) {
-      setDialerIndex(idx)
-      setPendingDialerCompanyId(null)
-    }
-  }, [pendingDialerCompanyId, dialerQueue])
-
-  // Pin the current dialer company by id — keep the index aligned if the queue re-sorts
-  // (e.g. after a new batch is assigned mid-session, or scores change after a call).
-  const dialerCompanyId = dialerIndex !== null ? dialerQueue[dialerIndex]?.id ?? null : null
-  useEffect(() => {
-    if (!dialerMode || !dialerCompanyId) return
-    const idx = dialerQueue.findIndex(o => o.id === dialerCompanyId)
-    if (idx !== -1 && idx !== dialerIndex) setDialerIndex(idx)
-  }, [dialerQueue, dialerMode, dialerCompanyId, dialerIndex])
-
-  function openDialer(companyId: string, personId?: string) {
-    // No identity yet → stash the click and prompt for identity
-    if (!currentDialer) {
-      setPendingClaim({ companyId, personId: personId ?? null })
-      setShowIdentityModal(true)
-      return
-    }
-
-    const idx = dialerQueue.findIndex(o => o.id === companyId)
-    if (idx !== -1) {
-      setDialerMode(true)
-      setDialerIndex(idx)
-      setDialerPersonId(personId ?? null)
-      return
-    }
-
-    // Not in queue → claim it then open
-    claimAndOpen(companyId, personId ?? null, currentDialer.id)
-  }
-
-  function dialerPrev() {
-    setDialerIndex(prev => {
-      if (prev === null || prev <= 0) return prev
-      return prev - 1
-    })
-    setDialerPersonId(null)
-  }
-
-  function dialerNext() {
-    setDialerIndex(prev => {
-      if (prev === null) return null
-      if (prev < dialerQueue.length - 1) return prev + 1
-      // Reached the end — exit dialer
-      setDialerMode(false)
-      return null
-    })
-    setDialerPersonId(null)
-  }
-
-  function dialerNextCold() {
-    setDialerIndex(prev => {
-      if (prev === null) return null
-      for (let i = prev + 1; i < dialerQueue.length; i++) {
-        if (!callLogsByCompany.has(dialerQueue[i].id)) return i
-      }
-      // Nothing cold ahead — stay put
-      return prev
-    })
-    setDialerPersonId(null)
-  }
-
-  function dialerExit() {
-    setDialerMode(false)
-    setDialerIndex(null)
-    setDialerPersonId(null)
-  }
 
   function toggleExpand(id: string) {
     setExpandedIds(prev => {
@@ -341,7 +193,6 @@ export function useLeadsPage() {
 
   function handleResearch(companyId: string) {
     queueResearchCompanies([companyId]).catch(err => {
-      // Roll back optimistic update on failure
       updateCompany(companyId, { enrichStatus: 'not_enriched' })
       console.error('Research queue failed:', err)
     })
@@ -379,9 +230,7 @@ export function useLeadsPage() {
       .map(id => companies.find(o => o.id === id))
       .filter((o): o is Company => o?.enrichStatus === 'enriched')
       .flatMap(o => o.people.map(p => p.id))
-    if (personIds.length > 0) {
-      enrollPeopleInCampaign(personIds, campaignId)
-    }
+    if (personIds.length > 0) enrollPeopleInCampaign(personIds, campaignId)
     setShowCampaignPicker(false)
     setCheckedIds(new Set())
   }
@@ -396,7 +245,7 @@ export function useLeadsPage() {
     )
     const csv = [headers, ...rows].map(r => r.map(v => `"${v}"`).join(',')).join('\n')
     const blob = new Blob([csv], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
+    const url  = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url; a.download = 'leads.csv'; a.click()
     URL.revokeObjectURL(url)
@@ -406,35 +255,22 @@ export function useLeadsPage() {
   const someChecked = checkedIds.size > 0
 
   return {
-    // data
-    companies, campaigns, filtered, selectedDetail,
-    // ui state
+    companies, campaigns, filtered: sortedFiltered, selectedDetail, dialerNameById,
     expandedIds, checkedIds, selected, setSelected,
     activeTab, setActiveTab,
     search, setSearch,
     showImport, setShowImport,
     showCampaignPicker, setShowCampaignPicker, campaignPickerRef,
-    // stats
+    sortKey, sortDir, toggleSort,
     totalPeople, researchedCount, enrichedCount, tabCounts,
-    // bulk counts
     checkedNotStartedCount, checkedResearchedCount, checkedEnrichedCount,
-    // flags
     allChecked, someChecked,
-    // dialer identity
-    currentDialer, setCurrentDialer,
+    currentDialer,
     showIdentityModal, setShowIdentityModal,
     showAssignModal, setShowAssignModal,
-    handleIdentitySelected, handleAssigned, handleDropCompany,
-    // dialer
-    dialerMode,
-    dialerIndex,
     dialerQueue,
-    dialerCompany: dialerIndex !== null ? dialerQueue[dialerIndex] ?? null : null,
-    dialerPersonId,
-    startDialer, openDialer, dialerPrev, dialerNext, dialerNextCold, dialerExit,
-    // call data
-    callLogsByPerson, callLogsByCompany, attemptsByPerson, scoreByCompany, refreshCallLogs,
-    // actions
+    callLogsByPerson, callLogsByCompany, attemptsByPerson, scoreByCompany,
+    startDialer, openDialer,
     toggleExpand, toggleCheck, toggleCheckAll,
     handleResearch, handleEnrich,
     handleResearchSelected, handleEnrichSelected, handleAddToCampaign,

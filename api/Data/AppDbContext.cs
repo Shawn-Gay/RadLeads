@@ -18,6 +18,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<OutboundEmail> OutboundEmails => Set<OutboundEmail>();
     public DbSet<InboxReply> InboxReplies => Set<InboxReply>();
     public DbSet<CallLog> CallLogs => Set<CallLog>();
+    public DbSet<Script> Scripts => Set<Script>();
+    public DbSet<ScriptFeedback> ScriptFeedback => Set<ScriptFeedback>();
+    public DbSet<EmailTemplate> EmailTemplates => Set<EmailTemplate>();
+    public DbSet<EmailTemplateOutcome> EmailTemplateOutcomes => Set<EmailTemplateOutcome>();
 
     // Auto-set UpdatedAt on every save
     public override Task<int> SaveChangesAsync(CancellationToken ct = default)
@@ -88,6 +92,46 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasForeignKey("CompanyId")
             .IsRequired(false);
 
+        // CallLog → Script (nullable: call may predate script selection)
+        model.Entity<CallLog>()
+            .HasOne(o => o.Script)
+            .WithMany(o => o.CallLogs)
+            .HasForeignKey("ScriptId")
+            .IsRequired(false);
+
+        // CallLog → Dialer (who made the call)
+        model.Entity<CallLog>()
+            .HasOne(o => o.Dialer)
+            .WithMany()
+            .HasForeignKey("DialerId")
+            .IsRequired(false);
+
+        // Dialer → SelectedScript (nullable)
+        model.Entity<Dialer>()
+            .HasOne(o => o.SelectedScript)
+            .WithMany()
+            .HasForeignKey("SelectedScriptId")
+            .IsRequired(false);
+
+        // ScriptFeedback → Script (required), CallLog (optional), Dialer (optional)
+        model.Entity<ScriptFeedback>()
+            .HasOne(o => o.Script)
+            .WithMany(o => o.Feedback)
+            .HasForeignKey("ScriptId")
+            .IsRequired();
+
+        model.Entity<ScriptFeedback>()
+            .HasOne(o => o.CallLog)
+            .WithMany()
+            .HasForeignKey("CallLogId")
+            .IsRequired(false);
+
+        model.Entity<ScriptFeedback>()
+            .HasOne(o => o.Dialer)
+            .WithMany()
+            .HasForeignKey("DialerId")
+            .IsRequired(false);
+
         // OutboundEmail: optional link back to Person/Company (set for dialer follow-ups)
         model.Entity<OutboundEmail>()
             .HasOne(o => o.Person)
@@ -100,5 +144,23 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .WithMany()
             .HasForeignKey("CompanyId")
             .IsRequired(false);
+
+        // OutboundEmail → EmailTemplate (nullable: campaigns + legacy follow-ups)
+        model.Entity<OutboundEmail>()
+            .HasOne(o => o.EmailTemplate)
+            .WithMany(o => o.OutboundEmails)
+            .HasForeignKey("EmailTemplateId")
+            .IsRequired(false);
+
+        // EmailTemplateOutcome → EmailTemplate (cascade)
+        model.Entity<EmailTemplateOutcome>()
+            .HasOne(o => o.Template)
+            .WithMany(o => o.OutcomeAssignments)
+            .HasForeignKey("EmailTemplateId")
+            .IsRequired();
+
+        // Index helps look up "what templates for outcome X"
+        model.Entity<EmailTemplateOutcome>()
+            .HasIndex(o => o.Outcome);
     }
 }

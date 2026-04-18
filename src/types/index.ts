@@ -3,6 +3,63 @@ export type DialDisposition = 'None' | 'NotInterested' | 'BadNumber' | 'Converte
 export interface Dialer {
   id: string
   name: string
+  selectedScriptId?: string | null
+}
+
+export interface Script {
+  id: string
+  name: string
+  body: string
+  isArchived: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ScriptFeedback {
+  id: string
+  scriptId: string
+  callLogId?: string
+  dialerId?: string
+  note: string
+  bodySnapshot?: string
+  createdAt: string
+}
+
+export interface ScriptStatsPerDialer {
+  dialerId: string
+  dialerName: string
+  totalCalls: number
+  outcomeCounts: Record<string, number>
+}
+
+export interface ScriptStats {
+  scriptId: string
+  totalCalls: number
+  outcomeCounts: Record<string, number>
+  perDialer: ScriptStatsPerDialer[]
+}
+
+export interface EmailTemplateOutcomeAssignment {
+  id: string
+  outcome: CallOutcome
+  isDefault: boolean
+}
+
+export interface EmailTemplate {
+  id: string
+  name: string
+  subject: string
+  body: string
+  isArchived: boolean
+  outcomeAssignments: EmailTemplateOutcomeAssignment[]
+  createdAt: string
+  updatedAt: string
+}
+
+export interface EmailTemplateStats {
+  emailTemplateId: string
+  totalSends: number
+  statusCounts: Record<string, number>
 }
 
 export type EmailSource = 'csv' | 'guessed' | 'scraped' | 'api'
@@ -17,6 +74,8 @@ export interface CallLog {
   notes?: string
   calledAt: string
   callbackAt?: string
+  scriptId?: string
+  dialerId?: string
 }
 export type EmailStatus = 'verified' | 'bounced' | 'unknown'
 export type EnrichStatus = 'not_enriched' | 'researching' | 'researched' | 'enriching' | 'enriched' | 'research_failed' | 'unreachable'

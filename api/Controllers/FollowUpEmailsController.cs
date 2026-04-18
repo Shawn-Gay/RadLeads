@@ -43,6 +43,13 @@ public class FollowUpEmailsController(AppDbContext db) : ControllerBase
             email.Person = person;
         }
 
+        if (req.EmailTemplateId is not null)
+        {
+            var template = await db.EmailTemplates.FindAsync(req.EmailTemplateId.Value);
+            if (template is null) return NotFound("EmailTemplate not found.");
+            email.EmailTemplate = template;
+        }
+
         db.OutboundEmails.Add(email);
         await db.SaveChangesAsync();
 

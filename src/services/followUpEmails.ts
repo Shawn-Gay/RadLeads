@@ -7,6 +7,7 @@ export interface SendFollowUpInput {
   toEmail: string
   subject: string
   body: string
+  emailTemplateId?: string
 }
 
 export async function sendFollowUpEmail(input: SendFollowUpInput): Promise<void> {
