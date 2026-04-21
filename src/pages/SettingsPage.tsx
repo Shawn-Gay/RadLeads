@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Trash2, Loader2, CheckCircle2, AlertTriangle, Plus, X } from 'lucide-react'
+import { Trash2, Loader2, CheckCircle2, AlertTriangle, Plus, Power } from 'lucide-react'
 import { apiFetch } from '@/lib/api'
 import { useAppContext } from '@/context/AppContext'
 
@@ -38,11 +38,11 @@ const defaultOptions: PurgeOptions = {
 }
 
 function DialersSection() {
-  const { dialers, addDialer, removeDialer } = useAppContext()
+  const { dialers, addDialer, setDialerDisabled } = useAppContext()
   const [newName, setNewName]   = useState('')
   const [adding, setAdding]     = useState(false)
   const [showNew, setShowNew]   = useState(false)
-  const [deleting, setDeleting] = useState<string | null>(null)
+  const [toggling, setToggling] = useState<string | null>(null)
 
   async function handleAdd() {
     const trimmed = newName.trim()
@@ -57,12 +57,12 @@ function DialersSection() {
     }
   }
 
-  async function handleDelete(id: string) {
-    setDeleting(id)
+  async function handleToggleDisabled(id: string, isDisabled: boolean) {
+    setToggling(id)
     try {
-      await removeDialer(id)
+      await setDialerDisabled(id, isDisabled)
     } finally {
-      setDeleting(null)
+      setToggling(null)
     }
   }
 
@@ -70,7 +70,7 @@ function DialersSection() {
     <div className="rounded-lg border border-border bg-card p-5 space-y-4">
       <div>
         <h2 className="text-sm font-semibold text-foreground">Dialers</h2>
-        <p className="text-xs text-muted-foreground mt-1">Manage dialer identities used to track call queues.</p>
+        <p className="text-xs text-muted-foreground mt-1">Manage dialer identities used to track call queues. Disabled dialers stay in call history but can't be selected.</p>
       </div>
 
       <div className="space-y-1.5">
@@ -78,19 +78,22 @@ function DialersSection() {
           <p className="text-xs text-muted-foreground italic">No dialers yet.</p>
         )}
         {dialers.map(o => (
-          <div key={o.id} className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-muted/50 border border-border">
+          <div key={o.id} className={'flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-muted/50 border border-border ' + (o.isDisabled ? 'opacity-60' : '')}>
             <div className="flex items-center gap-2.5">
               <div className="w-7 h-7 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 flex items-center justify-center text-xs font-bold shrink-0">
                 {o.name[0].toUpperCase()}
               </div>
               <span className="text-sm text-foreground">{o.name}</span>
+              {o.isDisabled && <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">Disabled</span>}
             </div>
             <button
-              onClick={() => handleDelete(o.id)}
-              disabled={deleting === o.id}
-              className="text-muted-foreground hover:text-red-500 transition-colors disabled:opacity-50"
+              onClick={() => handleToggleDisabled(o.id, !o.isDisabled)}
+              disabled={toggling === o.id}
+              title={o.isDisabled ? 'Enable dialer' : 'Disable dialer'}
+              className={'flex items-center gap-1 text-xs transition-colors disabled:opacity-50 ' + (o.isDisabled ? 'text-emerald-600 hover:text-emerald-700' : 'text-muted-foreground hover:text-amber-600')}
             >
-              {deleting === o.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
+              {toggling === o.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Power className="h-3.5 w-3.5" />}
+              {o.isDisabled ? 'Enable' : 'Disable'}
             </button>
           </div>
         ))}

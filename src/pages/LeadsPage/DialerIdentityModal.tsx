@@ -11,6 +11,7 @@ interface DialerIdentityModalProps {
 
 export function DialerIdentityModal({ onSelect, onDismiss }: DialerIdentityModalProps) {
   const { dialers, addDialer } = useAppContext()
+  const activeDialers = dialers.filter(o => !o.isDisabled)
   const [newName, setNewName]   = useState('')
   const [creating, setCreating] = useState(false)
   const [showNew, setShowNew]   = useState(false)
@@ -44,7 +45,7 @@ export function DialerIdentityModal({ onSelect, onDismiss }: DialerIdentityModal
         </div>
 
         <div className="p-4 space-y-1.5 max-h-64 overflow-y-auto">
-          {dialers.map(o => (
+          {activeDialers.map(o => (
             <button
               key={o.id}
               onClick={() => onSelect(o)}
@@ -58,8 +59,8 @@ export function DialerIdentityModal({ onSelect, onDismiss }: DialerIdentityModal
             </button>
           ))}
 
-          {dialers.length === 0 && !showNew && (
-            <p className="text-xs text-muted-foreground text-center py-4">No dialers yet — add one below.</p>
+          {activeDialers.length === 0 && !showNew && (
+            <p className="text-xs text-muted-foreground text-center py-4">No active dialers — add one below.</p>
           )}
         </div>
 

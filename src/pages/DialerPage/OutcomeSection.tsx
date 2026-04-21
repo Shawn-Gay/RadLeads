@@ -2,7 +2,7 @@ import { Link } from '@tanstack/react-router'
 import { ChevronRight, Clock, Mail, MailCheck, MailX, Pencil, Eye } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { fillTokens, EMAIL_TOKEN_HINTS } from '@/lib/tokens'
-import { CALL_OUTCOME_LABELS } from '@/pages/LeadsPage/constants'
+import { CALL_OUTCOME_LABELS, TERMINAL_OUTCOMES } from '@/pages/LeadsPage/constants'
 import type { CallOutcome, EmailTemplate, EmailAccount } from '@/types'
 import type { TokenData } from '@/lib/tokens'
 
@@ -82,16 +82,28 @@ export function OutcomeSection({
         ))}
       </div>
 
-      {outcome === 'CallBack' && (
+      {outcome && !TERMINAL_OUTCOMES.has(outcome) && (
         <div className="flex items-center gap-2 mb-4 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800">
           <Clock className="h-4 w-4 text-amber-600 shrink-0" />
-          <span className="text-xs text-amber-700 dark:text-amber-400 font-medium">Call back:</span>
+          <span className="text-xs text-amber-700 dark:text-amber-400 font-medium">
+            {outcome === 'CallBack' ? 'Call back:' : 'Next touch:'}
+          </span>
           <input
             type="datetime-local"
             value={callbackAt}
             onChange={e => onCallbackAtChange(e.target.value)}
+            placeholder="Override cadence default"
             className="flex-1 text-xs bg-transparent border-none focus:outline-none text-foreground"
           />
+          {callbackAt && (
+            <button
+              onClick={() => onCallbackAtChange('')}
+              className="text-[10px] text-amber-700 dark:text-amber-400 hover:underline shrink-0"
+              title="Clear — use cadence default"
+            >
+              clear
+            </button>
+          )}
         </div>
       )}
 

@@ -3,9 +3,35 @@ import { useNavigate } from '@tanstack/react-router'
 import { useAppContext } from './AppContext'
 import { getAllCallLogs } from '@/services/callLogs'
 import { scoreCompany } from '@/lib/scoring'
+import { buildDialerQueue, type QueueBuckets } from '@/lib/dialerQueue'
 import type { Company, CallLog, Dialer, DialDisposition } from '@/types'
 
 interface PendingClaim { companyId: string; personId: string | null }
+
+const DIALER_SESSION_KEY = 'radleads:dialerSession'
+
+interface PersistedSession {
+  mode: boolean
+  queue: string[] | null
+  index: number | null
+  personId: string | null
+}
+
+function loadPersistedSession(): PersistedSession {
+  try {
+    const raw = localStorage.getItem(DIALER_SESSION_KEY)
+    if (!raw) return { mode: false, queue: null, index: null, personId: null }
+    const p = JSON.parse(raw)
+    return {
+      mode:     !!p.mode,
+      queue:    Array.isArray(p.queue) ? p.queue.filter((x: unknown) => typeof x === 'string') : null,
+      index:    typeof p.index === 'number' ? p.index : null,
+      personId: typeof p.personId === 'string' ? p.personId : null,
+    }
+  } catch {
+    return { mode: false, queue: null, index: null, personId: null }
+  }
+}
 
 export interface DialerContextValue {
   callLogs: CallLog[]
@@ -18,8 +44,13 @@ export interface DialerContextValue {
   dialerMode:     boolean
   dialerIndex:    number | null
   dialerQueue:    Company[]
+  dialerBuckets:  QueueBuckets
   dialerCompany:  Company | null
   dialerPersonId: string | null
+  /** Every company assigned to the current dialer, regardless of cadence status or disposition. */
+  assignedCompanies: Company[]
+  /** Buckets over all eligible assigned leads — NOT filtered by the active session queue. */
+  allBuckets:     QueueBuckets
 
   showIdentityModal: boolean
   setShowIdentityModal: (v: boolean) => void
@@ -31,6 +62,7 @@ export interface DialerContextValue {
   dialerPrev:      () => void
   dialerNext:      () => void
   dialerNextCold:  () => void
+  dialerJumpTo:    (index: number) => void
   dialerExit:      () => void
   handleDropCompany:    (companyId: string, disposition: DialDisposition) => Promise<void>
   handleAssigned:       () => void
@@ -50,19 +82,34 @@ export function DialerContextProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate()
 
   const [callLogs, setCallLogs]                     = useState<CallLog[]>([])
-  const [dialerMode, setDialerMode]                 = useState(false)
-  const [dialerIndex, setDialerIndex]               = useState<number | null>(null)
-  const [dialerPersonId, setDialerPersonId]         = useState<string | null>(null)
-  const [sessionQueueIds, setSessionQueueIds]       = useState<string[] | null>(null)
+  const persisted = useMemo(loadPersistedSession, [])
+  const [dialerMode, setDialerMode]                 = useState(persisted.mode)
+  const [dialerIndex, setDialerIndex]               = useState<number | null>(persisted.index)
+  const [dialerPersonId, setDialerPersonId]         = useState<string | null>(persisted.personId)
+  const [sessionQueueIds, setSessionQueueIds]       = useState<string[] | null>(persisted.queue)
   const [showIdentityModal, setShowIdentityModal]   = useState(false)
   const [showAssignModal, setShowAssignModal]       = useState(false)
   const [pendingClaim, setPendingClaim]             = useState<PendingClaim | null>(null)
   const [pendingDialerCompanyId, setPendingDialerCompanyId] = useState<string | null>(null)
+  // True when dialerNext exhausts due leads — suppresses the auto-snap effect so the
+  // user stays on the empty state instead of being pulled back onto the just-called lead
+  // before refreshCompany reclassifies it as scheduled.
+  const [sessionEnded, setSessionEnded]             = useState(false)
 
   const refreshCallLogs = useCallback(() => {
     getAllCallLogs().then(setCallLogs).catch(err => console.error('Failed to load call logs:', err))
   }, [])
   useEffect(() => { refreshCallLogs() }, [refreshCallLogs])
+
+  // Persist session so /dialer refresh resumes instead of bouncing to /leads
+  useEffect(() => {
+    localStorage.setItem(DIALER_SESSION_KEY, JSON.stringify({
+      mode:     dialerMode,
+      queue:    sessionQueueIds,
+      index:    dialerIndex,
+      personId: dialerPersonId,
+    }))
+  }, [dialerMode, sessionQueueIds, dialerIndex, dialerPersonId])
 
   const callLogsByPerson = useMemo(() => {
     const map = new Map<string, CallLog>()
@@ -101,33 +148,54 @@ export function DialerContextProvider({ children }: { children: ReactNode }) {
     return map
   }, [companies, callLogsByCompany])
 
-  const candidateQueue = useMemo(() => {
-    const assigned = currentDialer
-      ? companies.filter(o => o.assignedToId === currentDialer.id && o.dialDisposition === 'None')
-      : []
-    return [...assigned].sort((a, b) =>
-      scoreCompany(b, callLogsByCompany.get(b.id) ?? []) -
-      scoreCompany(a, callLogsByCompany.get(a.id) ?? [])
-    )
-  }, [companies, currentDialer, callLogsByCompany])
+  const assignedCompanies = useMemo(
+    () => currentDialer ? companies.filter(o => o.assignedToId === currentDialer.id) : [],
+    [companies, currentDialer],
+  )
+
+  const candidateBuckets = useMemo(() => {
+    const eligible = assignedCompanies.filter(o => o.dialDisposition === 'None')
+    return buildDialerQueue(eligible, callLogsByCompany)
+  }, [assignedCompanies, callLogsByCompany])
+
+  const candidateQueue = candidateBuckets.flat
 
   const dialerQueue = useMemo(() => {
     if (!sessionQueueIds) return candidateQueue
-    const byId = new Map(candidateQueue.map(o => [o.id, o]))
+    // Include scheduled leads in the lookup — a lead that advanced to scheduled mid-session
+    // should remain navigable in the dialer queue, not vanish from under dialerIndex.
+    const byId = new Map<string, Company>()
+    for (const o of candidateQueue)              byId.set(o.id, o)
+    for (const o of candidateBuckets.scheduled)  byId.set(o.id, o)
     return sessionQueueIds.map(id => byId.get(id)).filter((o): o is Company => !!o)
-  }, [sessionQueueIds, candidateQueue])
+  }, [sessionQueueIds, candidateQueue, candidateBuckets])
 
-  // Sync frozen session list with the live candidate pool
+  const dialerBuckets = useMemo<QueueBuckets>(() => {
+    if (!sessionQueueIds) return candidateBuckets
+    // Intersect each bucket with the session queue, preserving bucket membership
+    const inSession = new Set(sessionQueueIds)
+    return {
+      callbacks: candidateBuckets.callbacks.filter(o => inSession.has(o.id)),
+      dueToday:  candidateBuckets.dueToday.filter(o => inSession.has(o.id)),
+      fresh:     candidateBuckets.fresh.filter(o => inSession.has(o.id)),
+      scheduled: candidateBuckets.scheduled.filter(o => inSession.has(o.id)),
+    }
+  }, [candidateBuckets, sessionQueueIds])
+
+  // Sync frozen session list with the live candidate pool.
+  // Leads that moved to scheduled (cadence advanced this session) are preserved — only truly
+  // terminal leads (Completed/Dropped, no longer in any bucket) get evicted.
   useEffect(() => {
     if (!sessionQueueIds) return
     const candIds = candidateQueue.map(o => o.id)
     const candSet = new Set(candIds)
-    const kept = sessionQueueIds.filter(id => candSet.has(id))
+    const scheduledSet = new Set(candidateBuckets.scheduled.map(o => o.id))
+    const kept = sessionQueueIds.filter(id => candSet.has(id) || scheduledSet.has(id))
     const newcomers = candIds.filter(id => !new Set(kept).has(id))
     if (kept.length !== sessionQueueIds.length || newcomers.length > 0) {
       setSessionQueueIds([...kept, ...newcomers])
     }
-  }, [candidateQueue, sessionQueueIds])
+  }, [candidateQueue, candidateBuckets, sessionQueueIds])
 
   // After a claim, wait for queue to include the company then set index
   useEffect(() => {
@@ -139,6 +207,20 @@ export function DialerContextProvider({ children }: { children: ReactNode }) {
     }
   }, [pendingDialerCompanyId, dialerQueue])
 
+  // Empty-queue entry: when a session has no due leads (all scheduled or fresh assignments
+  // arrive), auto-snap to the first *due* lead as soon as one appears. Must not snap to
+  // scheduled leads — those are preserved in dialerQueue for pinning, not for auto-focus.
+  useEffect(() => {
+    if (!dialerMode || dialerIndex !== null || pendingDialerCompanyId || sessionEnded) return
+    const dueIds = new Set<string>()
+    for (const o of dialerBuckets.callbacks) dueIds.add(o.id)
+    for (const o of dialerBuckets.dueToday)  dueIds.add(o.id)
+    for (const o of dialerBuckets.fresh)     dueIds.add(o.id)
+    if (dueIds.size === 0) return
+    const firstDue = dialerQueue.findIndex(o => dueIds.has(o.id))
+    if (firstDue !== -1) setDialerIndex(firstDue)
+  }, [dialerMode, dialerIndex, pendingDialerCompanyId, sessionEnded, dialerQueue, dialerBuckets])
+
   // Pin current company by id so queue re-sorts don't move the cursor
   const dialerCompanyId = dialerIndex !== null ? (dialerQueue[dialerIndex]?.id ?? null) : null
   useEffect(() => {
@@ -146,6 +228,15 @@ export function DialerContextProvider({ children }: { children: ReactNode }) {
     const idx = dialerQueue.findIndex(o => o.id === dialerCompanyId)
     if (idx !== -1 && idx !== dialerIndex) setDialerIndex(idx)
   }, [dialerQueue, dialerMode, dialerCompanyId, dialerIndex])
+
+  // Clamp out-of-bounds index (can happen after a restore when the persisted
+  // queue resolves to fewer companies than it had originally)
+  useEffect(() => {
+    if (!dialerMode || dialerIndex === null) return
+    if (dialerIndex >= dialerQueue.length) {
+      setDialerIndex(dialerQueue.length > 0 ? dialerQueue.length - 1 : null)
+    }
+  }, [dialerMode, dialerQueue.length, dialerIndex])
 
   async function claimAndOpen(companyId: string, personId: string | null, dialerId: string) {
     try {
@@ -155,6 +246,7 @@ export function DialerContextProvider({ children }: { children: ReactNode }) {
       return
     }
     if (!sessionQueueIds) setSessionQueueIds(candidateQueue.map(o => o.id))
+    setSessionEnded(false)
     setDialerMode(true)
     setDialerPersonId(personId)
     setPendingDialerCompanyId(companyId)
@@ -163,10 +255,10 @@ export function DialerContextProvider({ children }: { children: ReactNode }) {
 
   function startDialer() {
     if (!currentDialer) { setShowIdentityModal(true); return }
-    if (candidateQueue.length === 0) { setShowAssignModal(true); return }
     setSessionQueueIds(candidateQueue.map(o => o.id))
+    setSessionEnded(false)
     setDialerMode(true)
-    setDialerIndex(0)
+    setDialerIndex(candidateQueue.length > 0 ? 0 : null)
     setDialerPersonId(null)
     navigate({ to: '/dialer' })
   }
@@ -180,6 +272,7 @@ export function DialerContextProvider({ children }: { children: ReactNode }) {
     const idx = dialerQueue.findIndex(o => o.id === companyId)
     if (idx !== -1) {
       if (!sessionQueueIds) setSessionQueueIds(dialerQueue.map(o => o.id))
+      setSessionEnded(false)
       setDialerMode(true)
       setDialerIndex(idx)
       setDialerPersonId(personId ?? null)
@@ -203,6 +296,7 @@ export function DialerContextProvider({ children }: { children: ReactNode }) {
 
   function handleAssigned() {
     setShowAssignModal(false)
+    setSessionEnded(false)
     if (dialerMode) return
     setDialerMode(true)
     setDialerIndex(0)
@@ -223,22 +317,34 @@ export function DialerContextProvider({ children }: { children: ReactNode }) {
 
   function dialerNext() {
     if (dialerIndex === null) return
-    if (dialerIndex < dialerQueue.length - 1) {
-      setDialerIndex(dialerIndex + 1)
-      setDialerPersonId(null)
-      return
+    const dueIds = new Set<string>()
+    for (const o of dialerBuckets.callbacks) dueIds.add(o.id)
+    for (const o of dialerBuckets.dueToday)  dueIds.add(o.id)
+    for (const o of dialerBuckets.fresh)     dueIds.add(o.id)
+    for (let i = dialerIndex + 1; i < dialerQueue.length; i++) {
+      if (dueIds.has(dialerQueue[i].id)) {
+        setDialerIndex(i)
+        setDialerPersonId(null)
+        return
+      }
     }
-    setDialerMode(false)
-    setSessionQueueIds(null)
+    // No more due leads — stay on /dialer with the empty state instead of bouncing away
     setDialerIndex(null)
     setDialerPersonId(null)
-    navigate({ to: '/leads' })
+    setSessionEnded(true)
+  }
+
+  function dialerJumpTo(index: number) {
+    if (index < 0 || index >= dialerQueue.length) return
+    setSessionEnded(false)
+    setDialerIndex(index)
+    setDialerPersonId(null)
   }
 
   function dialerNextCold() {
     if (dialerIndex === null) return
     for (let i = dialerIndex + 1; i < dialerQueue.length; i++) {
-      if (!callLogsByCompany.has(dialerQueue[i].id)) {
+      if (dialerQueue[i].cadenceStatus === 'NotStarted') {
         setDialerIndex(i)
         setDialerPersonId(null)
         return
@@ -257,12 +363,13 @@ export function DialerContextProvider({ children }: { children: ReactNode }) {
   return (
     <DialerContext.Provider value={{
       callLogs, callLogsByCompany, callLogsByPerson, attemptsByPerson, scoreByCompany, refreshCallLogs,
-      dialerMode, dialerIndex, dialerQueue,
+      dialerMode, dialerIndex, dialerQueue, dialerBuckets, assignedCompanies,
+      allBuckets: candidateBuckets,
       dialerCompany: dialerIndex !== null ? (dialerQueue[dialerIndex] ?? null) : null,
       dialerPersonId,
       showIdentityModal, setShowIdentityModal,
       showAssignModal, setShowAssignModal,
-      startDialer, openDialer, dialerPrev, dialerNext, dialerNextCold, dialerExit,
+      startDialer, openDialer, dialerPrev, dialerNext, dialerNextCold, dialerJumpTo, dialerExit,
       handleDropCompany, handleAssigned, handleIdentitySelected,
     }}>
       {children}

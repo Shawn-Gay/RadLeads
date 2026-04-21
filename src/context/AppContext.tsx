@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
 import type { Company, Dialer, DialDisposition, LeadPerson, Campaign, EmailAccount, SenderPersonaInput, WarmupActivity, InboxMessage, ImportPersonInput, ImportCompanyInput, Script, EmailTemplate, CallOutcome } from '@/types'
-import { getLeads, importPeople, importCompanies, queueResearch, queueEnrich, assignLeads, claimLead, dropLead } from '@/services/leads'
-import { getDialers, createDialer, deleteDialer } from '@/services/dialers'
+import { getLeads, getCompany, importPeople, importCompanies, queueResearch, queueEnrich, assignLeads, claimLead, dropLead } from '@/services/leads'
+import { getDialers, createDialer, setDialerDisabled as apiSetDialerDisabled } from '@/services/dialers'
 import { getCampaigns, createCampaign, saveCampaign, enrollPeople, unenrollPerson } from '@/services/campaigns'
 import { getAccounts, getWarmupActivities, patchAccountStatus, deleteAccount, updateSenderInfo } from '@/services/accounts'
 import { getInbox, markMessageRead } from '@/services/inbox'
@@ -24,6 +24,7 @@ interface AppContextValue {
   addFromImport: (people: ImportPersonInput[]) => Promise<void>
   addFromCompanyImport: (inputs: ImportCompanyInput[]) => Promise<void>
   updateCompany: (id: string, partial: Partial<Omit<Company, 'people' | 'id'>>) => void
+  refreshCompany: (id: string) => Promise<void>
   updatePerson: (companyId: string, personId: string, partial: Partial<Omit<LeadPerson, 'id'>>) => void
   queueResearchCompanies: (ids: string[]) => Promise<void>
   queueEnrichCompanies: (ids: string[]) => Promise<void>
@@ -52,7 +53,7 @@ interface AppContextValue {
   currentDialer: Dialer | null
   setCurrentDialer: (dialer: Dialer | null) => void
   addDialer: (name: string) => Promise<Dialer>
-  removeDialer: (id: string) => Promise<void>
+  setDialerDisabled: (id: string, isDisabled: boolean) => Promise<void>
   // Scripts
   scripts: Script[]
   currentScript: Script | null
@@ -102,7 +103,7 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
       const savedId = localStorage.getItem(DIALER_STORAGE_KEY)
       if (savedId) {
         const found = list.find(o => o.id === savedId)
-        if (found) setCurrentDialerState(found)
+        if (found && !found.isDisabled) setCurrentDialerState(found)
       }
     })
   }, [])
@@ -119,10 +120,10 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
     return dialer
   }
 
-  async function removeDialer(id: string): Promise<void> {
-    await deleteDialer(id)
-    setDialers(prev => prev.filter(o => o.id !== id))
-    if (currentDialer?.id === id) setCurrentDialerState(null)
+  async function setDialerDisabled(id: string, isDisabled: boolean): Promise<void> {
+    const updated = await apiSetDialerDisabled(id, isDisabled)
+    setDialers(prev => prev.map(o => o.id === id ? updated : o))
+    if (isDisabled && currentDialer?.id === id) setCurrentDialerState(null)
   }
 
   async function selectScriptForCurrentDialer(scriptId: string | null): Promise<void> {
@@ -212,6 +213,15 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
 
   function updateCompany(id: string, partial: Partial<Omit<Company, 'people' | 'id'>>) {
     setCompanies(prev => prev.map(o => o.id === id ? { ...o, ...partial } : o))
+  }
+
+  async function refreshCompany(id: string): Promise<void> {
+    try {
+      const fresh = await getCompany(id)
+      setCompanies(prev => prev.map(o => o.id === id ? fresh : o))
+    } catch (err) {
+      console.error('Failed to refresh company:', err)
+    }
   }
 
   function updatePerson(companyId: string, personId: string, partial: Partial<Omit<LeadPerson, 'id'>>) {
@@ -327,7 +337,7 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
   return (
     <AppContext.Provider value={{
       companies, setCompanies, addFromImport, addFromCompanyImport,
-      updateCompany, updatePerson,
+      updateCompany, refreshCompany, updatePerson,
       queueResearchCompanies, queueEnrichCompanies,
       enrollPeopleInCampaign, removePersonFromCampaign,
       assignCompaniesToDialer, claimCompanyForDialer, dropCompany,
@@ -335,7 +345,7 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
       accounts, setAccounts, addAccount, toggleAccountStatus, removeAccount, updateAccountSenderInfo,
       warmupActivities, setWarmupActivities,
       inbox, setInbox, markRead,
-      dialers, currentDialer, setCurrentDialer, addDialer, removeDialer,
+      dialers, currentDialer, setCurrentDialer, addDialer, setDialerDisabled,
       scripts, currentScript, selectScriptForCurrentDialer,
       addScript, editScript, archiveScript, removeScript,
       emailTemplates, addEmailTemplate, editEmailTemplate,

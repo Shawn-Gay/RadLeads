@@ -1,4 +1,4 @@
-import type { Company, DialDisposition, EnrichStatus, EmailSource, EmailStatus, ImportPersonInput, ImportCompanyInput } from '@/types'
+import type { Company, CadenceStatus, DialDisposition, EnrichStatus, EmailSource, EmailStatus, ImportPersonInput, ImportCompanyInput } from '@/types'
 import { apiFetch } from '@/lib/api'
 
 const enrichStatusMap: Record<string, EnrichStatus> = {
@@ -30,6 +30,10 @@ function mapCompany(raw: any): Company {
     assignedToId:      raw.assignedToId ?? null,
     assignedAt:        raw.assignedAt ?? null,
     dialDisposition:   (raw.dialDisposition as DialDisposition) ?? 'None',
+    cadenceStatus:       (raw.cadenceStatus as CadenceStatus) ?? 'NotStarted',
+    cadenceStartedAt:    raw.cadenceStartedAt ?? null,
+    currentTouchNumber:  raw.currentTouchNumber ?? 0,
+    nextTouchAt:         raw.nextTouchAt ?? null,
     people: (raw.people ?? []).map((p: any) => ({
       id:          p.id,
       firstName:   p.firstName,
@@ -55,6 +59,11 @@ function mapCompany(raw: any): Company {
 export async function getLeads(): Promise<Company[]> {
   const data = await apiFetch<any[]>('/api/companies')
   return data.map(mapCompany)
+}
+
+export async function getCompany(id: string): Promise<Company> {
+  const data = await apiFetch<any>(`/api/companies/${id}`)
+  return mapCompany(data)
 }
 
 export async function queueResearch(ids: string[]): Promise<{ queued: number }> {

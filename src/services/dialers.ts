@@ -12,6 +12,9 @@ export async function createDialer(name: string): Promise<Dialer> {
   })
 }
 
-export async function deleteDialer(id: string): Promise<void> {
-  await apiFetch<void>(`/api/dialers/${id}`, { method: 'DELETE' })
+export async function setDialerDisabled(id: string, isDisabled: boolean): Promise<Dialer> {
+  return apiFetch<Dialer>(`/api/dialers/${id}/disabled`, {
+    method: 'PATCH',
+    body: JSON.stringify({ isDisabled }),
+  })
 }

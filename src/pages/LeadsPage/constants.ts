@@ -94,6 +94,11 @@ export const FOLLOW_UP_DEFAULT_ON: Set<CallOutcome> = new Set([
   'LeftVoicemail', 'LeftMessage', 'NoAnswer', 'Connected',
 ])
 
+// Outcomes that end the cadence (drop or convert). No follow-up scheduled.
+export const TERMINAL_OUTCOMES: Set<CallOutcome> = new Set([
+  'Interested', 'NotInterested', 'WrongNumber',
+])
+
 // ─── Objection playbook ─────────────────────────────────────────────────────
 
 export interface Objection { trigger: string; response: string }

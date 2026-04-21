@@ -11,7 +11,7 @@ interface AssignLeadsModalProps {
   onCancel: () => void
 }
 
-const CAP = 50
+const CAP = 300
 
 export function AssignLeadsModal({ dialer, currentAssignedCount, onAssigned, onCancel }: AssignLeadsModalProps) {
   const { assignCompaniesToDialer } = useAppContext()

@@ -1,8 +1,10 @@
 export type DialDisposition = 'None' | 'NotInterested' | 'BadNumber' | 'Converted'
+export type CadenceStatus = 'NotStarted' | 'Active' | 'Paused' | 'Completed' | 'Dropped'
 
 export interface Dialer {
   id: string
   name: string
+  isDisabled: boolean
   selectedScriptId?: string | null
 }
 
@@ -145,6 +147,10 @@ export interface Company {
   assignedToId?: string | null
   assignedAt?: string | null
   dialDisposition: DialDisposition
+  cadenceStatus: CadenceStatus
+  cadenceStartedAt?: string | null
+  currentTouchNumber: number
+  nextTouchAt?: string | null
   people: LeadPerson[]
 }
 
