@@ -49,6 +49,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         config.Properties<EmailEventType>().HaveConversion<string>();
         config.Properties<CallOutcome>().HaveConversion<string>();
         config.Properties<DialDisposition>().HaveConversion<string>();
+        config.Properties<CadenceStatus>().HaveConversion<string>();
     }
 
     protected override void OnModelCreating(ModelBuilder model)

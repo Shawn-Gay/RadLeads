@@ -27,7 +27,9 @@
       "Bash(ls -la /d/RadcoreAI/RadLeads/api/Controllers/*.cs)",
       "Bash(ls:*)",
       "Bash(node_modules/.bin/tsc --noEmit)",
-      "Bash(echo \"EXIT:$?\")"
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(dotnet --version)",
+      "Bash(echo \"EXIT=$?\")"
     ]
   }
 }

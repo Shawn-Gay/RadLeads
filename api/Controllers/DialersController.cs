@@ -18,6 +18,7 @@ public class DialersController(AppDbContext db) : ControllerBase
             {
                 o.Id,
                 o.Name,
+                o.IsDisabled,
                 SelectedScriptId = EF.Property<Guid?>(o, "SelectedScriptId"),
             })
             .ToListAsync();
@@ -30,17 +31,18 @@ public class DialersController(AppDbContext db) : ControllerBase
         var dialer = new Dialer { Name = req.Name.Trim() };
         db.Dialers.Add(dialer);
         await db.SaveChangesAsync();
-        return Ok(new { dialer.Id, dialer.Name, SelectedScriptId = (Guid?)null });
+        return Ok(new { dialer.Id, dialer.Name, dialer.IsDisabled, SelectedScriptId = (Guid?)null });
     }
 
-    [HttpDelete("{id:guid}")]
-    public async Task<IActionResult> Delete(Guid id)
+    [HttpPatch("{id:guid}/disabled")]
+    public async Task<IActionResult> SetDisabled(Guid id, [FromBody] SetDialerDisabledRequest req)
     {
         var dialer = await db.Dialers.FindAsync(id);
         if (dialer is null) return NotFound("Dialer not found.");
-        db.Dialers.Remove(dialer);
+        dialer.IsDisabled = req.IsDisabled;
         await db.SaveChangesAsync();
-        return NoContent();
+        var selectedScriptId = db.Entry(dialer).Property<Guid?>("SelectedScriptId").CurrentValue;
+        return Ok(new { dialer.Id, dialer.Name, dialer.IsDisabled, SelectedScriptId = selectedScriptId });
     }
 
     [HttpPost("{id:guid}/selected-script")]
@@ -61,9 +63,10 @@ public class DialersController(AppDbContext db) : ControllerBase
         }
 
         await db.SaveChangesAsync();
-        return Ok(new { dialer.Id, dialer.Name, SelectedScriptId = req.ScriptId });
+        return Ok(new { dialer.Id, dialer.Name, dialer.IsDisabled, SelectedScriptId = req.ScriptId });
     }
 }
 
 public record CreateDialerRequest(string Name);
 public record SetSelectedScriptRequest(Guid? ScriptId);
+public record SetDialerDisabledRequest(bool IsDisabled);

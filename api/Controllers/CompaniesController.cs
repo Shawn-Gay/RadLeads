@@ -177,7 +177,7 @@ public class CompaniesController(AppDbContext db) : ControllerBase
         var existing = await db.Companies.CountAsync(o =>
             o.AssignedTo!.Id == req.DialerId && o.DialDisposition == DialDisposition.None);
 
-        const int cap     = 50;
+        const int cap     = 300;
         var available = cap - existing;
         if (available <= 0) return BadRequest($"Already at cap ({cap} assigned leads).");
 
@@ -227,13 +227,22 @@ public class CompaniesController(AppDbContext db) : ControllerBase
         {
             var existing = await db.Companies.CountAsync(o =>
                 o.AssignedTo!.Id == req.DialerId && o.DialDisposition == DialDisposition.None);
-            const int cap = 50;
+            const int cap = 300;
             if (existing >= cap) return BadRequest($"Already at cap ({cap} assigned leads).");
         }
 
         company.AssignedTo      = dialer;
         company.AssignedAt      = DateTimeOffset.UtcNow;
         company.DialDisposition = DialDisposition.None;
+
+        // Reclaim of a previously terminal cadence resets it back to Fresh
+        if (company.CadenceStatus == CadenceStatus.Dropped || company.CadenceStatus == CadenceStatus.Completed)
+        {
+            company.CadenceStatus      = CadenceStatus.NotStarted;
+            company.CadenceStartedAt   = null;
+            company.CurrentTouchNumber = 0;
+            company.NextTouchAt        = null;
+        }
 
         await db.SaveChangesAsync();
         return Ok(ToDto(company));
@@ -251,6 +260,8 @@ public class CompaniesController(AppDbContext db) : ControllerBase
         company.AssignedTo       = null;
         company.AssignedAt       = null;
         company.DialDisposition  = req.Disposition;
+        company.CadenceStatus    = CadenceStatus.Dropped;
+        company.NextTouchAt      = null;
 
         await db.SaveChangesAsync();
         return Ok(new { company.Id, AssignedToId = (Guid?)null, company.DialDisposition });
@@ -355,6 +366,10 @@ public class CompaniesController(AppDbContext db) : ControllerBase
         c.AssignedTo?.Id,
         c.AssignedAt,
         c.DialDisposition,
+        c.CadenceStatus,
+        c.CadenceStartedAt,
+        c.CurrentTouchNumber,
+        c.NextTouchAt,
         c.People.Select(p => new LeadPersonDto(
             p.Id,
             p.FirstName,

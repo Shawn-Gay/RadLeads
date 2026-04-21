@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using RadLeads.Api.Data;
 using RadLeads.Api.Dtos;
 using RadLeads.Api.Models;
+using RadLeads.Api.Services;
 
 namespace RadLeads.Api.Controllers;
 
@@ -90,11 +91,18 @@ public class CallLogsController(AppDbContext db) : ControllerBase
             log.Person = person;
         }
 
+        Company? targetCompany = null;
         if (input.CompanyId is not null)
         {
-            var company = await db.Companies.FindAsync(input.CompanyId.Value);
-            if (company is null) return NotFound("Company not found.");
-            log.Company = company;
+            targetCompany = await db.Companies.FindAsync(input.CompanyId.Value);
+            if (targetCompany is null) return NotFound("Company not found.");
+            log.Company = targetCompany;
+        }
+        else if (input.PersonId is not null)
+        {
+            // Person-only calls still advance the owning company's cadence
+            targetCompany = await db.Companies
+                .FirstOrDefaultAsync(o => o.People.Any(p => p.Id == input.PersonId.Value));
         }
 
         if (input.ScriptId is not null)
@@ -112,6 +120,10 @@ public class CallLogsController(AppDbContext db) : ControllerBase
         }
 
         db.CallLogs.Add(log);
+
+        if (targetCompany is not null)
+            CadenceService.Advance(targetCompany, input.Outcome, input.CallbackAt, DateTimeOffset.UtcNow);
+
         await db.SaveChangesAsync();
         return Ok(ToDto(log));
     }

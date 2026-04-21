@@ -8,6 +8,7 @@ public record LogCallInput(
     string CalledPhone,
     CallOutcome Outcome,
     string? Notes,
+    DateTimeOffset? CallbackAt = null,
     Guid? ScriptId = null,
     Guid? DialerId = null);
 

@@ -39,6 +39,10 @@ public record CompanyDto(
     Guid? AssignedToId,
     DateTimeOffset? AssignedAt,
     DialDisposition DialDisposition,
+    CadenceStatus CadenceStatus,
+    DateTimeOffset? CadenceStartedAt,
+    int CurrentTouchNumber,
+    DateTimeOffset? NextTouchAt,
     List<LeadPersonDto> People);
 
 public record AssignLeadsRequest(Guid DialerId, int Count);

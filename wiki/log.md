@@ -40,3 +40,20 @@ New: multi-dialer soft-lock via company assignment.
 ## [2026-04-12] update | Wiki sync for dialer + enrichment changes
 
 Updated pages: `dialer.md` (full rewrite), `domain-model.md` (Dialer entity, Company assignment fields), `enrichment-pipeline.md` (Unreachable status + ScrapeFailCount), `backend.md` (DialersController), `frontend.md` (dialer state slices, new components, services)
+
+## [2026-04-20] feature | Dialer disable + queue sidebar + call-log attribution
+
+Dialer changes:
+- `Dialer.IsDisabled` added (migration `AddDialerIsDisabled`). Dialers can no longer be deleted — only disabled. Preserves call-log attribution.
+- `DialersController`: `DELETE` removed; new `PATCH /api/dialers/{id}/disabled`. GET/POST now return `isDisabled`.
+- `DialerIdentityModal` filters out disabled dialers. Saved-identity restore ignores disabled.
+- `SettingsPage` dialer row: Power toggle (Enable/Disable) replaces X delete button.
+
+Call history:
+- `CallHistoryCard` now shows who made each call — dialer name resolved from `AppContext.dialers` by `dialerId` (lookup works even if dialer later disabled).
+
+Dialer page UX:
+- New `QueueSidebar` (`src/pages/DialerPage/QueueSidebar.tsx`) — left rail showing the full `dialerQueue` with per-row name, score, attempt count (or ❄ cold), latest outcome, callback flame; active row highlighted; click-to-jump via new `DialerContext.dialerJumpTo(index)`; auto-scrolls into view.
+- `DialerPage` layout restructured: header + flex container with sidebar + scrollable main (2-col grid unchanged).
+
+Updated pages: `dialer.md` (IsDisabled, sidebar, CallLog DialerId/ScriptId fields, scripts section, endpoint table)

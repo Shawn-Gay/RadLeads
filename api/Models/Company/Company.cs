@@ -17,6 +17,12 @@ public class Company : BaseEntity
     public DateTimeOffset? AssignedAt { get; set; }
     public DialDisposition DialDisposition { get; set; } = DialDisposition.None;
 
+    // Cadence: drives the dialer queue (Day-0 through Day-30 touch sequence)
+    public CadenceStatus CadenceStatus { get; set; } = CadenceStatus.NotStarted;
+    public DateTimeOffset? CadenceStartedAt { get; set; }
+    public int CurrentTouchNumber { get; set; }
+    public DateTimeOffset? NextTouchAt { get; set; }
+
     public List<LeadPerson> People { get; set; } = [];
     public CompanyResearch? Research { get; set; }
 }

@@ -17,7 +17,7 @@ Catalog of all wiki pages. Update on every add or significant change.
 |------|---------|
 | [[enrichment-pipeline]] | Research + Enrich two-phase flow; scraping, AI calls, status lifecycle |
 | [[email-system]] | Campaigns, warmup, dispatch jobs, inbox, tracking, sender persona |
-| [[dialer]] | Call panel UI, call log entity, follow-up email queue |
+| [[dialer]] | Full-page call panel — identity/assignment, queue sidebar, scripts, call logs with dialer attribution, follow-up emails |
 
 ## Meta
 
