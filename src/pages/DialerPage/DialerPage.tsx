@@ -20,6 +20,7 @@ import { EmailHistoryCard }  from './EmailHistoryCard'
 import { ScriptCard }        from './ScriptCard'
 import { OutcomeSection }    from './OutcomeSection'
 import { ResearchChip }      from './ResearchChip'
+import { SessionTimer }      from './SessionTimer'
 
 type Phase = 'ready' | 'outcome'
 
@@ -51,6 +52,7 @@ function DialerEmptyState() {
           <X className="h-4 w-4" />
         </button>
       </div>
+      <SessionTimer />
       <div className="flex-1 flex overflow-hidden">
         <QueueSidebar />
         <div className="flex-1 flex items-center justify-center p-8">
@@ -86,6 +88,7 @@ function DialerPageContent() {
     callLogsByCompany, refreshCallLogs,
     dialerNext, dialerExit, handleDropCompany,
     setShowIdentityModal, setShowAssignModal,
+    callSession, bumpSessionCount,
   } = useDialerContext()
   const { accounts, scripts, currentScript, selectScriptForCurrentDialer, editScript, emailTemplates, currentDialer, refreshCompany } = useAppContext()
 
@@ -225,16 +228,18 @@ function DialerPageContent() {
       // datetime-local is wall-clock with no offset — convert to UTC ISO so Postgres timestamptz accepts it
       const callbackIso = callbackAt ? new Date(callbackAt).toISOString() : undefined
       const saved = await logCall({
-        personId:   lastCalledTarget === 'person' ? person!.id : undefined,
-        companyId:  company.id,
+        personId:      lastCalledTarget === 'person' ? person!.id : undefined,
+        companyId:     company.id,
         calledPhone,
         outcome,
-        notes:      notes.trim() || undefined,
-        callbackAt: callbackIso,
-        scriptId:   currentScript?.id,
-        dialerId:   currentDialer?.id,
+        notes:         notes.trim() || undefined,
+        callbackAt:    callbackIso,
+        scriptId:      currentScript?.id,
+        dialerId:      currentDialer?.id,
+        callSessionId: callSession?.id,
       })
       setLastCallLogId(saved.id)
+      bumpSessionCount()
 
       if (sendFollowUp && followUpToAddr && selectedFromAccount) {
         const tokenData = buildTokenData()
@@ -281,6 +286,7 @@ function DialerPageContent() {
         onAssignMore={() => setShowAssignModal(true)}
         onDrop={handleDropCompany}
       />
+      <SessionTimer />
 
       <div className="flex-1 flex overflow-hidden">
         <QueueSidebar />

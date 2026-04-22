@@ -10,7 +10,8 @@ public static class CadenceService
     public static readonly int[] CadenceDays = [0, 2, 4, 7, 11, 18, 30];
 
     // Advance a company's cadence state based on a just-logged outcome.
-    // Terminal outcomes (Interested/NotInterested/WrongNumber) stop the cadence and set a disposition.
+    // Terminal outcomes (NotInterested/WrongNumber) stop the cadence and set a disposition.
+    // Interested pauses at Converted disposition with a 1-day follow-up (top-priority callbacks).
     // CallBack pauses the cadence at the current touch and pins NextTouchAt to the caller-provided datetime.
     // Everything else advances to the next touch (or completes if we've exhausted all 7 touches).
     public static void Advance(Company company, CallOutcome outcome, DateTimeOffset? callbackAt, DateTimeOffset now)
@@ -37,9 +38,9 @@ public static class CadenceService
                 return;
 
             case CallOutcome.Interested:
-                company.CadenceStatus   = CadenceStatus.Completed;
+                company.CadenceStatus   = CadenceStatus.Paused;
                 company.DialDisposition = DialDisposition.Converted;
-                company.NextTouchAt     = null;
+                company.NextTouchAt     = callbackUtc ?? now.AddDays(1);
                 return;
 
             case CallOutcome.CallBack:

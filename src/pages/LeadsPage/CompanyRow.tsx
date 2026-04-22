@@ -1,15 +1,16 @@
-import { ChevronRight, Globe, Sparkles, RefreshCw, Loader2, ExternalLink, PhoneCall, Calendar, FileText, User } from 'lucide-react'
+import { ChevronRight, Globe, Sparkles, RefreshCw, Loader2, ExternalLink, PhoneCall, Calendar, FileText, User, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { COMPANY_GRID, CALL_OUTCOME_STYLES, CALL_OUTCOME_LABELS } from './constants'
+import { COMPANY_GRID, CALL_OUTCOME_STYLES, CALL_OUTCOME_LABELS, ENRICH_CONFIG } from './constants'
 import { EnrichBadge } from './EnrichBadge'
 import { PersonRow } from './PersonRow'
 import { PhoneNumber } from '@/components/leads/PhoneNumber'
 import type { Company, Campaign, CallLog, EnrichStatus } from '@/types'
 
 const PIPELINE_STAGES: { key: EnrichStatus[]; label: string }[] = [
-  { key: ['not_enriched'],              label: 'Imported' },
-  { key: ['researching', 'researched'], label: 'Researched' },
-  { key: ['enriching', 'enriched'],     label: 'Enriched' },
+  { key: ['not_enriched'],                            label: 'Imported' },
+  { key: ['researching', 'researched'],               label: 'Researched' },
+  { key: ['enriching', 'enriched'],                   label: 'Enriched' },
+  { key: ['finding_decision_maker', 'serper_failed'], label: 'Owner Found' },
 ]
 
 interface CompanyRowProps {
@@ -27,6 +28,7 @@ interface CompanyRowProps {
   onSelectPerson: (personId: string | null) => void
   onResearch: () => void
   onEnrich: () => void
+  onFindDecisionMaker: () => void
   onCallCompany: () => void
   onCall: (personId: string) => void
 }
@@ -35,9 +37,14 @@ export function CompanyRow({
   company, campaigns, assignedToName, callLogsByPerson, attemptsByPerson, companyCallLogs,
   isExpanded, isChecked, selectedPersonId,
   onExpand, onCheck, onSelectPerson,
-  onResearch, onEnrich, onCallCompany, onCall,
+  onResearch, onEnrich, onFindDecisionMaker, onCallCompany, onCall,
 }: CompanyRowProps) {
-  const isInProgress = company.enrichStatus === 'researching' || company.enrichStatus === 'enriching'
+  const isInProgress =
+    company.enrichStatus === 'researching'
+    || company.enrichStatus === 'enriching'
+    || company.enrichStatus === 'finding_decision_maker'
+  const hasDecisionMaker = company.people.some(o =>
+    /owner|founder|president|ceo|coo|principal|proprietor/i.test(o.title))
 
   return (
     <div className={cn(isExpanded && 'bg-muted/20')}>
@@ -157,12 +164,30 @@ export function CompanyRow({
               <Sparkles className="h-3 w-3" /> Enrich
             </button>
           ) : company.enrichStatus === 'enriched' ? (
+            !hasDecisionMaker ? (
+              <button
+                onClick={onFindDecisionMaker}
+                title="Find decision maker via web search"
+                className="flex items-center gap-1 text-[10px] font-medium text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950 px-1.5 py-1 rounded transition-colors"
+              >
+                <Search className="h-3 w-3" /> Find Owner
+              </button>
+            ) : (
+              <button
+                onClick={onResearch}
+                title="Re-research"
+                className="p-1 text-muted-foreground hover:text-foreground hover:bg-muted rounded transition-colors"
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+              </button>
+            )
+          ) : company.enrichStatus === 'serper_failed' ? (
             <button
-              onClick={onResearch}
-              title="Re-research"
-              className="p-1 text-muted-foreground hover:text-foreground hover:bg-muted rounded transition-colors"
+              onClick={onFindDecisionMaker}
+              title="Retry owner search"
+              className="flex items-center gap-1 text-[10px] font-medium text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950 px-1.5 py-1 rounded transition-colors"
             >
-              <RefreshCw className="h-3.5 w-3.5" />
+              <RefreshCw className="h-3 w-3" /> Retry
             </button>
           ) : company.enrichStatus === 'research_failed' ? (
             <button
@@ -190,9 +215,10 @@ export function CompanyRow({
               {/* Pipeline stepper */}
               <div className="flex items-center max-w-sm mb-4">
                 {PIPELINE_STAGES.map((stage, i) => {
-                  const isLastStage = activeIndex === PIPELINE_STAGES.length - 1
-                  const isDone    = i < activeIndex || (isLastStage && i === activeIndex)
-                  const isActive  = i === activeIndex && !isLastStage
+                  const isLastStage  = activeIndex === PIPELINE_STAGES.length - 1
+                  const isInProgressHere = ENRICH_CONFIG[company.enrichStatus]?.spin === true
+                  const isDone    = i < activeIndex || (isLastStage && i === activeIndex && !isInProgressHere)
+                  const isActive  = i === activeIndex && (isInProgressHere || !isLastStage)
                   return (
                     <div key={stage.label} className="flex items-center flex-1 last:flex-initial">
                       <div className="flex items-center gap-1.5">

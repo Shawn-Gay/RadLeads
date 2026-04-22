@@ -19,6 +19,7 @@ builder.Services.AddScoped<IWarmupService, WarmupService>();
 builder.Services.AddScoped<ICampaignDispatchService, CampaignDispatchService>();
 builder.Services.AddScoped<IScrapingService, PlaywrightScraperService>();
 builder.Services.AddScoped<IAiService, OpenAiService>();
+builder.Services.AddScoped<ISerperSearchService, SerperSearchService>();
 
 builder.Services.AddQuartz(q =>
 {
@@ -79,6 +80,17 @@ builder.Services.AddQuartz(q =>
         .WithIdentity("ScrapeLeadsTrigger")
         .WithSimpleSchedule(s => s
             .WithIntervalInMinutes(2)
+            .RepeatForever()
+            .WithMisfireHandlingInstructionNextWithRemainingCount()));
+
+    q.AddJob<FindDecisionMakerJob>(j => j
+        .WithIdentity("FindDecisionMakerJob")
+        .StoreDurably())
+     .AddTrigger(t => t
+        .ForJob("FindDecisionMakerJob")
+        .WithIdentity("FindDecisionMakerTrigger")
+        .WithSimpleSchedule(s => s
+            .WithIntervalInMinutes(5)
             .RepeatForever()
             .WithMisfireHandlingInstructionNextWithRemainingCount()));
 

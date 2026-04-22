@@ -10,6 +10,7 @@ export interface LogCallInput {
   callbackAt?: string
   scriptId?: string
   dialerId?: string
+  callSessionId?: string
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -21,10 +22,11 @@ function mapCallLog(raw: any): CallLog {
     calledPhone: raw.calledPhone,
     outcome:     raw.outcome as CallOutcome,
     notes:       raw.notes ?? undefined,
-    calledAt:    raw.calledAt,
-    callbackAt:  raw.callbackAt ?? undefined,
-    scriptId:    raw.scriptId ?? undefined,
-    dialerId:    raw.dialerId ?? undefined,
+    calledAt:      raw.calledAt,
+    callbackAt:    raw.callbackAt    ?? undefined,
+    scriptId:      raw.scriptId      ?? undefined,
+    dialerId:      raw.dialerId      ?? undefined,
+    callSessionId: raw.callSessionId ?? undefined,
   }
 }
 

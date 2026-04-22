@@ -13,7 +13,7 @@ export interface QueueBuckets {
 }
 
 export interface DialerQueueResult extends QueueBuckets {
-  /** Flat ordered list: callbacks → dueToday → fresh. Scheduled/terminal leads are excluded. */
+  /** Flat ordered list: callbacks (Converted first) → dueToday → fresh. Scheduled/terminal leads are excluded. */
   flat: Company[]
 }
 
@@ -58,8 +58,11 @@ export function buildDialerQueue(
     }
   }
 
-  // Callbacks: earliest time first (most overdue on top)
+  // Callbacks: Converted (Interested) leads always first, then earliest time
   callbacks.sort((a, b) => {
+    const aConverted = a.dialDisposition === 'Converted' ? 0 : 1
+    const bConverted = b.dialDisposition === 'Converted' ? 0 : 1
+    if (aConverted !== bConverted) return aConverted - bConverted
     const aAt = a.nextTouchAt ? Date.parse(a.nextTouchAt) : 0
     const bAt = b.nextTouchAt ? Date.parse(b.nextTouchAt) : 0
     return aAt - bAt

@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { BarChart3, ScrollText, Loader2 } from 'lucide-react'
+import { BarChart3, ScrollText, Loader2, Timer } from 'lucide-react'
 import { useAppContext } from '@/context/AppContext'
 import { getScriptStats } from '@/services/scripts'
-import type { ScriptStats, ScriptStatsPerDialer } from '@/types'
+import { getCallSessions } from '@/services/callSessions'
+import type { ScriptStats, ScriptStatsPerDialer, CallSessionListItem } from '@/types'
 
-type TabId = 'scripts'
+type TabId = 'scripts' | 'sessions'
 
 interface Tab {
   id: TabId
@@ -13,7 +14,8 @@ interface Tab {
 }
 
 const tabs: Tab[] = [
-  { id: 'scripts', label: 'Scripts', icon: ScrollText },
+  { id: 'scripts',  label: 'Scripts',  icon: ScrollText },
+  { id: 'sessions', label: 'Sessions', icon: Timer },
 ]
 
 export function AnalyticsPage() {
@@ -48,7 +50,8 @@ export function AnalyticsPage() {
       </div>
 
       <div className="flex-1 min-h-0 overflow-hidden">
-        {activeTab === 'scripts' && <ScriptsAnalytics />}
+        {activeTab === 'scripts'  && <ScriptsAnalytics />}
+        {activeTab === 'sessions' && <SessionsAnalytics />}
       </div>
     </div>
   )
@@ -232,6 +235,148 @@ function DialerUsage({ scriptId }: { scriptId: string }) {
             {o.name}
           </span>
         ))}
+      </div>
+    </div>
+  )
+}
+
+function fmtDuration(totalSeconds: number): string {
+  const h = Math.floor(totalSeconds / 3600)
+  const m = Math.floor((totalSeconds % 3600) / 60)
+  const s = totalSeconds % 60
+  if (h > 0) return `${h}h ${m}m ${s}s`
+  if (m > 0) return `${m}m ${s}s`
+  return `${s}s`
+}
+
+function sessionElapsedSeconds(s: CallSessionListItem): number | null {
+  if (!s.endedAt) return null
+  return Math.round((new Date(s.endedAt).getTime() - new Date(s.startedAt).getTime()) / 1000)
+}
+
+function SessionsAnalytics() {
+  const { dialers } = useAppContext()
+  const [dialerFilter, setDialerFilter] = useState<string>('all')
+  const [sessions, setSessions] = useState<CallSessionListItem[]>([])
+  const [loading, setLoading] = useState(false)
+  const [fetchError, setFetchError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setLoading(true)
+    setFetchError(null)
+    const id = dialerFilter === 'all' ? undefined : dialerFilter
+    getCallSessions(id)
+      .then(setSessions)
+      .catch(err => setFetchError(String(err)))
+      .finally(() => setLoading(false))
+  }, [dialerFilter])
+
+  const ended = sessions.filter(o => o.endedAt)
+  const totalCalls    = sessions.reduce((acc, o) => acc + o.leadsCalledCount, 0)
+  const totalActive   = ended.reduce((acc, o) => {
+    const elapsed = sessionElapsedSeconds(o)
+    return elapsed !== null ? acc + elapsed - o.totalPausedSeconds : acc
+  }, 0)
+  const avgCalls = ended.length > 0 ? (totalCalls / ended.length).toFixed(1) : '—'
+
+  return (
+    <div className="h-full overflow-y-auto">
+      <div className="max-w-4xl mx-auto p-6 space-y-5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Timer className="h-4 w-4 text-blue-600" />
+            <h2 className="text-sm font-semibold text-foreground">Call Sessions</h2>
+            {loading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-muted-foreground">Dialer:</label>
+            <select
+              value={dialerFilter}
+              onChange={e => setDialerFilter(e.target.value)}
+              className="text-xs rounded-md border border-border bg-card px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              <option value="all">All dialers</option>
+              {dialers.map(o => (
+                <option key={o.id} value={o.id}>{o.name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-4 gap-3">
+          {[
+            { label: 'Total sessions', value: sessions.length },
+            { label: 'Completed',      value: ended.length },
+            { label: 'Total active',   value: totalActive > 0 ? fmtDuration(totalActive) : '—' },
+            { label: 'Avg calls/session', value: avgCalls },
+          ].map(o => (
+            <div key={o.label} className="rounded-lg border border-border bg-card p-4">
+              <div className="text-xs text-muted-foreground mb-1">{o.label}</div>
+              <div className="text-xl font-semibold text-foreground tabular-nums">{o.value}</div>
+            </div>
+          ))}
+        </div>
+
+        {fetchError && (
+          <div className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30 px-4 py-3 text-xs text-red-700 dark:text-red-400">
+            Failed to load sessions: {fetchError}
+          </div>
+        )}
+
+        <div className="rounded-lg border border-border bg-card overflow-hidden">
+          <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] text-[11px] font-semibold text-muted-foreground px-4 py-2 border-b border-border bg-muted/40 gap-4">
+            <span>Started</span>
+            <span className="w-28 text-right">Dialer</span>
+            <span className="w-20 text-right">Duration</span>
+            <span className="w-20 text-right">Active</span>
+            <span className="w-16 text-right">Paused</span>
+            <span className="w-12 text-right">Calls</span>
+          </div>
+
+          {sessions.length === 0 && !loading && (
+            <p className="px-4 py-6 text-xs text-muted-foreground text-center">No sessions found.</p>
+          )}
+
+          {sessions.map(o => {
+            const elapsed  = sessionElapsedSeconds(o)
+            const active   = elapsed !== null ? elapsed - o.totalPausedSeconds : null
+            const started  = new Date(o.startedAt)
+            const dateStr  = started.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+            const timeStr  = started.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+
+            return (
+              <div
+                key={o.id}
+                className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] items-center px-4 py-2.5 border-b border-border last:border-0 gap-4 text-xs"
+              >
+                <div>
+                  <span className="text-foreground font-medium">{dateStr}</span>
+                  <span className="text-muted-foreground ml-1.5">{timeStr}</span>
+                  {!o.endedAt && (
+                    <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300">
+                      In progress
+                    </span>
+                  )}
+                </div>
+                <span className="w-28 text-right text-muted-foreground truncate">
+                  {o.dialerName ?? '—'}
+                </span>
+                <span className="w-20 text-right tabular-nums text-foreground">
+                  {elapsed !== null ? fmtDuration(elapsed) : '—'}
+                </span>
+                <span className="w-20 text-right tabular-nums text-foreground">
+                  {active !== null ? fmtDuration(Math.max(0, active)) : '—'}
+                </span>
+                <span className="w-16 text-right tabular-nums text-muted-foreground">
+                  {o.totalPausedSeconds > 0 ? fmtDuration(o.totalPausedSeconds) : '—'}
+                </span>
+                <span className="w-12 text-right tabular-nums font-medium text-foreground">
+                  {o.leadsCalledCount}
+                </span>
+              </div>
+            )
+          })}
+        </div>
       </div>
     </div>
   )

@@ -167,6 +167,29 @@ public class CompaniesController(AppDbContext db) : ControllerBase
         return Ok(new { queued = companies.Count });
     }
 
+    [HttpPatch("queue-find-decision-maker")]
+    public async Task<IActionResult> QueueFindDecisionMaker([FromBody] Guid[] ids)
+    {
+        var companies = await db.Companies
+            .Include(o => o.Research)
+            .Where(o => ids.Contains(o.Id)
+                     && (o.EnrichStatus == EnrichStatus.Enriched
+                      || o.EnrichStatus == EnrichStatus.SerperFailed))
+            .ToListAsync();
+
+        foreach (var c in companies)
+        {
+            c.EnrichStatus = EnrichStatus.FindingDecisionMaker;
+            if (c.Research is not null)
+            {
+                c.Research.DecisionMakerFailCount = 0;
+                c.Research.ErrorMessage = null;
+            }
+        }
+        await db.SaveChangesAsync();
+        return Ok(new { queued = companies.Count });
+    }
+
     // Assign top-N unassigned companies (by priority) to a dialer.
     [HttpPost("assign")]
     public async Task<IActionResult> Assign([FromBody] AssignLeadsRequest req)
@@ -381,6 +404,7 @@ public class CompaniesController(AppDbContext db) : ControllerBase
             p.Icebreaker,
             p.PainPoint,
             p.SourcePage,
+            p.Source,
             p.Emails.Select(e => new LeadEmailDto(e.Address, e.Source, e.IsPrimary, e.Status)).ToList(),
             p.Campaigns.Select(campaign => campaign.Id).ToList()
         )).ToList()

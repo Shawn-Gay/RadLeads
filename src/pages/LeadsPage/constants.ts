@@ -1,4 +1,4 @@
-import type { EnrichStatus, EmailSource, EmailStatus, CallOutcome } from '@/types'
+import type { EnrichStatus, EmailSource, EmailStatus, CallOutcome, PersonSource } from '@/types'
 
 export const ENRICH_CONFIG: Record<EnrichStatus, { label: string; cls: string; spin?: boolean }> = {
   not_enriched: { label: 'Not Started',  cls: 'bg-muted text-muted-foreground' },
@@ -8,6 +8,22 @@ export const ENRICH_CONFIG: Record<EnrichStatus, { label: string; cls: string; s
   enriched:     { label: 'Enriched',     cls: 'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400' },
   research_failed: { label: 'Research Failed', cls: 'bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400' },
   unreachable:     { label: 'Unreachable',      cls: 'bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400' },
+  finding_decision_maker: { label: 'Finding Owner…', cls: 'bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-400', spin: true },
+  serper_failed:          { label: 'No Owner Found', cls: 'bg-rose-50 dark:bg-rose-950 text-rose-600 dark:text-rose-400' },
+}
+
+export const PERSON_SOURCE_STYLES: Record<PersonSource, string> = {
+  csv:          'bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400',
+  scraped_site: 'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400',
+  web_search:   'bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-400',
+  manual:       'bg-muted text-muted-foreground',
+}
+
+export const PERSON_SOURCE_LABELS: Record<PersonSource, string> = {
+  csv:          'CSV',
+  scraped_site: 'Site',
+  web_search:   'Web',
+  manual:       'Manual',
 }
 
 export const SOURCE_STYLES: Record<EmailSource, string> = {
@@ -68,13 +84,15 @@ export const COMPANY_GRID = 'grid-cols-[32px_32px_1fr_80px_120px_128px_144px_72p
 
 // Stage ordering weight — used by sort
 export const STAGE_ORDER: Record<EnrichStatus, number> = {
-  not_enriched:    0,
-  researching:     1,
-  researched:      2,
-  enriching:       3,
-  enriched:        4,
-  research_failed: 5,
-  unreachable:     6,
+  not_enriched:           0,
+  researching:            1,
+  researched:             2,
+  enriching:              3,
+  enriched:               4,
+  finding_decision_maker: 4.5,
+  serper_failed:          4.6,
+  research_failed:        5,
+  unreachable:            6,
 }
 
 export type SortKey = 'domain' | 'people' | 'lastCall' | 'assigned' | 'stage'

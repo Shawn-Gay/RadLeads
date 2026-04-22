@@ -1,5 +1,25 @@
 export type DialDisposition = 'None' | 'NotInterested' | 'BadNumber' | 'Converted'
 export type CadenceStatus = 'NotStarted' | 'Active' | 'Paused' | 'Completed' | 'Dropped'
+export type SessionStatus = 'idle' | 'running' | 'paused' | 'ended'
+
+export interface CallSession {
+  id: string
+  startedAt: string
+  endedAt?: string
+  leadsCalledCount: number
+  totalPausedSeconds: number
+  dialerId?: string
+}
+
+export interface CallSessionListItem {
+  id: string
+  startedAt: string
+  endedAt?: string
+  leadsCalledCount: number
+  totalPausedSeconds: number
+  dialerId?: string
+  dialerName?: string
+}
 
 export interface Dialer {
   id: string
@@ -78,6 +98,7 @@ export interface CallLog {
   callbackAt?: string
   scriptId?: string
   dialerId?: string
+  callSessionId?: string
 }
 export type OutboundEmailStatus = 'Pending' | 'Sent' | 'Failed'
 
@@ -97,7 +118,8 @@ export interface FollowUpEmail {
 }
 
 export type EmailStatus = 'verified' | 'bounced' | 'unknown'
-export type EnrichStatus = 'not_enriched' | 'researching' | 'researched' | 'enriching' | 'enriched' | 'research_failed' | 'unreachable'
+export type EnrichStatus = 'not_enriched' | 'researching' | 'researched' | 'enriching' | 'enriched' | 'research_failed' | 'unreachable' | 'finding_decision_maker' | 'serper_failed'
+export type PersonSource = 'csv' | 'scraped_site' | 'web_search' | 'manual'
 export type CampaignStatus = 'active' | 'draft' | 'paused'
 export type AccountStatus = 'active' | 'warming' | 'paused' | 'inactive'
 export type AccountProvider = 'namecheap' | 'google' | 'smtp'
@@ -124,6 +146,7 @@ export interface LeadPerson {
   icebreaker?: string
   painPoint?: string
   sourcePage?: string
+  personSource: PersonSource
   followUpEmailTemplate?: string
   campaignIds: string[]
 }

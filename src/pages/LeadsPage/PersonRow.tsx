@@ -1,7 +1,7 @@
-import { Phone, PhoneCall, Mail, MapPin } from 'lucide-react'
+import { Phone, PhoneCall, Mail, MapPin, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PhoneNumber } from '@/components/leads/PhoneNumber'
-import { SOURCE_STYLES, SOURCE_LABELS, STATUS_STYLES, CALL_OUTCOME_STYLES, CALL_OUTCOME_LABELS } from './constants'
+import { SOURCE_STYLES, SOURCE_LABELS, STATUS_STYLES, CALL_OUTCOME_STYLES, CALL_OUTCOME_LABELS, PERSON_SOURCE_STYLES, PERSON_SOURCE_LABELS } from './constants'
 import type { LeadPerson, Campaign, CallLog } from '@/types'
 
 interface PersonRowProps {
@@ -43,7 +43,15 @@ export function PersonRow({ person, campaigns, lastCall, attempts, isSelected, o
         </p>
         <div className="flex items-center gap-1.5 min-w-0">
           <p className="text-[11px] text-muted-foreground truncate leading-snug">{person.title}</p>
-          {person.sourcePage && (
+          {person.personSource === 'web_search' ? (
+            <span
+              className={cn('inline-flex items-center gap-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap shrink-0', PERSON_SOURCE_STYLES[person.personSource])}
+              title={person.sourcePage ? `Found via web search: ${person.sourcePage}` : 'Found via web search'}
+            >
+              <Search className="h-2.5 w-2.5" />
+              {PERSON_SOURCE_LABELS[person.personSource]}
+            </span>
+          ) : person.sourcePage && (
             <span
               className="inline-flex items-center gap-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-teal-50 dark:bg-teal-950 text-teal-700 dark:text-teal-400 whitespace-nowrap shrink-0"
               title={`Found on the "${person.sourcePage}" page of their website`}

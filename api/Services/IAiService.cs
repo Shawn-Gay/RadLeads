@@ -12,6 +12,14 @@ public record CompanySummaryResult(
 
 public record CampaignStepResult(string Subject, string Body);
 
+public record DecisionMakerExtraction(
+    string? Name,
+    string? Title,
+    string? LinkedinUrl,
+    string? SourceQuery,
+    double Confidence
+);
+
 public interface IAiService
 {
     Task<CompanySummaryResult?> SummarizeCompanyAsync(
@@ -28,5 +36,11 @@ public interface IAiService
     Task<string?> DraftReplyAsync(
         string senderName,
         string lastMessage,
+        CancellationToken ct = default);
+
+    Task<DecisionMakerExtraction?> ExtractDecisionMakerAsync(
+        string companyName,
+        string domain,
+        IReadOnlyList<SerperSearchResponse> searches,
         CancellationToken ct = default);
 }

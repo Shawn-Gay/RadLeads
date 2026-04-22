@@ -4,7 +4,8 @@ import { useAppContext } from './AppContext'
 import { getAllCallLogs } from '@/services/callLogs'
 import { scoreCompany } from '@/lib/scoring'
 import { buildDialerQueue, type QueueBuckets } from '@/lib/dialerQueue'
-import type { Company, CallLog, Dialer, DialDisposition } from '@/types'
+import { useCallSession } from '@/hooks/useCallSession'
+import type { Company, CallLog, CallSession, Dialer, DialDisposition, SessionStatus } from '@/types'
 
 interface PendingClaim { companyId: string; personId: string | null }
 
@@ -67,6 +68,16 @@ export interface DialerContextValue {
   handleDropCompany:    (companyId: string, disposition: DialDisposition) => Promise<void>
   handleAssigned:       () => void
   handleIdentitySelected: (dialer: Dialer) => void
+
+  callSession:      CallSession | null
+  sessionStatus:    SessionStatus
+  sessionElapsed:   number
+  sessionCallCount: number
+  startSession:     () => void
+  pauseSession:     (reason?: 'manual' | 'auto') => void
+  resumeSession:    (reason?: 'manual' | 'auto') => Promise<void>
+  endSession:       () => Promise<void>
+  bumpSessionCount: () => void
 }
 
 const DialerContext = createContext<DialerContextValue | null>(null)
@@ -95,6 +106,18 @@ export function DialerContextProvider({ children }: { children: ReactNode }) {
   // user stays on the empty state instead of being pulled back onto the just-called lead
   // before refreshCompany reclassifies it as scheduled.
   const [sessionEnded, setSessionEnded]             = useState(false)
+
+  const {
+    session:        callSession,
+    status:         sessionStatus,
+    elapsedSeconds: sessionElapsed,
+    localCount:     sessionCallCount,
+    start:          startCallSession,
+    pause:          pauseSession,
+    resume:         resumeSession,
+    end:            endSession,
+    bumpCount:      bumpSessionCount,
+  } = useCallSession()
 
   const refreshCallLogs = useCallback(() => {
     getAllCallLogs().then(setCallLogs).catch(err => console.error('Failed to load call logs:', err))
@@ -159,6 +182,15 @@ export function DialerContextProvider({ children }: { children: ReactNode }) {
   }, [assignedCompanies, callLogsByCompany])
 
   const candidateQueue = candidateBuckets.flat
+
+
+  // Auto-pause when no due leads; auto-resume (only if was auto-paused) when they return
+  const queueFlatLen = candidateBuckets.flat.length
+  useEffect(() => {
+    if (queueFlatLen === 0) pauseSession('auto')
+    else resumeSession('auto')
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queueFlatLen])
 
   const dialerQueue = useMemo(() => {
     if (!sessionQueueIds) return candidateQueue
@@ -353,6 +385,7 @@ export function DialerContextProvider({ children }: { children: ReactNode }) {
   }
 
   function dialerExit() {
+    void endSession()
     setDialerMode(false)
     setDialerIndex(null)
     setDialerPersonId(null)
@@ -371,6 +404,9 @@ export function DialerContextProvider({ children }: { children: ReactNode }) {
       showAssignModal, setShowAssignModal,
       startDialer, openDialer, dialerPrev, dialerNext, dialerNextCold, dialerJumpTo, dialerExit,
       handleDropCompany, handleAssigned, handleIdentitySelected,
+      callSession, sessionStatus, sessionElapsed, sessionCallCount,
+      startSession: () => void startCallSession(currentDialer?.id),
+      pauseSession, resumeSession, endSession, bumpSessionCount,
     }}>
       {children}
     </DialerContext.Provider>

@@ -29,7 +29,9 @@
       "Bash(node_modules/.bin/tsc --noEmit)",
       "Bash(echo \"EXIT:$?\")",
       "Bash(dotnet --version)",
-      "Bash(echo \"EXIT=$?\")"
+      "Bash(echo \"EXIT=$?\")",
+      "Bash(rm \"D:/RadcoreAI/RadLeads/api/Migrations/20260422014916_AddDecisionMakerSearchAndPersonSource.cs\" \"D:/RadcoreAI/RadLeads/api/Migrations/20260422014916_AddDecisionMakerSearchAndPersonSource.Designer.cs\")",
+      "Bash(git checkout *)"
     ]
   }
 }

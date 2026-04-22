@@ -12,6 +12,11 @@ public class CompanyResearch : BaseEntity
     public string? SummaryJson { get; set; }         // JSON: CompanySummaryResult
     public DateTimeOffset? SummarizedAt { get; set; }
 
+    // ── Decision maker web-search phase ──────────────────────────────────────
+    public string? DecisionMakerSearchJson { get; set; }  // JSON: { queries, results, extraction }
+    public DateTimeOffset? DecisionMakerSearchedAt { get; set; }
+    public int DecisionMakerFailCount { get; set; }
+
     public string? ErrorMessage { get; set; }
     public int ScrapeFailCount { get; set; }
 

@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
 import type { Company, Dialer, DialDisposition, LeadPerson, Campaign, EmailAccount, SenderPersonaInput, WarmupActivity, InboxMessage, ImportPersonInput, ImportCompanyInput, Script, EmailTemplate, CallOutcome } from '@/types'
-import { getLeads, getCompany, importPeople, importCompanies, queueResearch, queueEnrich, assignLeads, claimLead, dropLead } from '@/services/leads'
+import { getLeads, getCompany, importPeople, importCompanies, queueResearch, queueEnrich, queueFindDecisionMaker, assignLeads, claimLead, dropLead } from '@/services/leads'
 import { getDialers, createDialer, setDialerDisabled as apiSetDialerDisabled } from '@/services/dialers'
 import { getCampaigns, createCampaign, saveCampaign, enrollPeople, unenrollPerson } from '@/services/campaigns'
 import { getAccounts, getWarmupActivities, patchAccountStatus, deleteAccount, updateSenderInfo } from '@/services/accounts'
@@ -28,6 +28,7 @@ interface AppContextValue {
   updatePerson: (companyId: string, personId: string, partial: Partial<Omit<LeadPerson, 'id'>>) => void
   queueResearchCompanies: (ids: string[]) => Promise<void>
   queueEnrichCompanies: (ids: string[]) => Promise<void>
+  queueFindDecisionMakerCompanies: (ids: string[]) => Promise<void>
   enrollPeopleInCampaign: (personIds: string[], campaignId: string) => void
   removePersonFromCampaign: (personId: string, campaignId: string) => void
   assignCompaniesToDialer: (dialerId: string, count: number) => Promise<void>
@@ -251,6 +252,15 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
     await queueEnrich(ids)
   }
 
+  async function queueFindDecisionMakerCompanies(ids: string[]): Promise<void> {
+    setCompanies(prev => prev.map(o =>
+      ids.includes(o.id) && (o.enrichStatus === 'enriched' || o.enrichStatus === 'serper_failed')
+        ? { ...o, enrichStatus: 'finding_decision_maker' }
+        : o
+    ))
+    await queueFindDecisionMaker(ids)
+  }
+
   function enrollPeopleInCampaign(personIds: string[], campaignId: string) {
     // Optimistic update
     setCompanies(prev => prev.map(o => ({
@@ -338,7 +348,7 @@ export function AppContextProvider({ children }: { children: ReactNode }) {
     <AppContext.Provider value={{
       companies, setCompanies, addFromImport, addFromCompanyImport,
       updateCompany, refreshCompany, updatePerson,
-      queueResearchCompanies, queueEnrichCompanies,
+      queueResearchCompanies, queueEnrichCompanies, queueFindDecisionMakerCompanies,
       enrollPeopleInCampaign, removePersonFromCampaign,
       assignCompaniesToDialer, claimCompanyForDialer, dropCompany,
       campaigns, setCampaigns, addCampaign, updateCampaign,

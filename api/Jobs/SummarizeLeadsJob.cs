@@ -67,6 +67,15 @@ public class SummarizeLeadsJob(
 
                     SavePeopleWithGuessedEmails(db, company, summary.KeyPeople);
 
+                    // Auto-queue web search when crawl + AI yielded no decision-maker person
+                    var hasDecisionMaker =
+                        company.People.Any(o => TitleHelper.IsDecisionMakerTitle(o.Title))
+                        || summary.KeyPeople.Any(o => TitleHelper.IsDecisionMakerTitle(o.Title));
+                    if (!hasDecisionMaker)
+                    {
+                        company.EnrichStatus = EnrichStatus.FindingDecisionMaker;
+                    }
+
                     logger.LogInformation("Enriched {Domain}: {People} people extracted, {PainPoints} pain points",
                         company.Domain, summary.KeyPeople.Count, summary.PainPoints.Count);
                 }

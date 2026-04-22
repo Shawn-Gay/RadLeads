@@ -19,6 +19,7 @@ public record LeadPersonDto(
     string? Icebreaker,
     string? PainPoint,
     string? SourcePage,
+    PersonSource Source,
     List<LeadEmailDto> Emails,
     List<Guid> CampaignIds);
 

@@ -1,4 +1,4 @@
-import type { Company, CadenceStatus, DialDisposition, EnrichStatus, EmailSource, EmailStatus, ImportPersonInput, ImportCompanyInput } from '@/types'
+import type { Company, CadenceStatus, DialDisposition, EnrichStatus, EmailSource, EmailStatus, ImportPersonInput, ImportCompanyInput, PersonSource } from '@/types'
 import { apiFetch } from '@/lib/api'
 
 const enrichStatusMap: Record<string, EnrichStatus> = {
@@ -9,6 +9,15 @@ const enrichStatusMap: Record<string, EnrichStatus> = {
   Enriched:     'enriched',
   ResearchFailed: 'research_failed',
   Unreachable:    'unreachable',
+  FindingDecisionMaker: 'finding_decision_maker',
+  SerperFailed: 'serper_failed',
+}
+
+const personSourceMap: Record<string, PersonSource> = {
+  Csv:         'csv',
+  ScrapedSite: 'scraped_site',
+  WebSearch:   'web_search',
+  Manual:      'manual',
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -42,9 +51,10 @@ function mapCompany(raw: any): Company {
       linkedinUrl: p.linkedinUrl ?? undefined,
       phone:       p.phone ?? null,
       city:        p.city ?? undefined,
-      icebreaker:  p.icebreaker ?? undefined,
-      painPoint:   p.painPoint ?? undefined,
-      sourcePage:  p.sourcePage ?? undefined,
+      icebreaker:   p.icebreaker ?? undefined,
+      painPoint:    p.painPoint ?? undefined,
+      sourcePage:   p.sourcePage ?? undefined,
+      personSource: personSourceMap[p.source] ?? 'scraped_site',
       emails: (p.emails ?? []).map((e: any) => ({
         address:   e.address,
         source:    (e.source as string).toLowerCase() as EmailSource,
@@ -75,6 +85,13 @@ export async function queueResearch(ids: string[]): Promise<{ queued: number }> 
 
 export async function queueEnrich(ids: string[]): Promise<{ queued: number }> {
   return apiFetch('/api/companies/queue-enrich', {
+    method: 'PATCH',
+    body: JSON.stringify(ids),
+  })
+}
+
+export async function queueFindDecisionMaker(ids: string[]): Promise<{ queued: number }> {
+  return apiFetch('/api/companies/queue-find-decision-maker', {
     method: 'PATCH',
     body: JSON.stringify(ids),
   })

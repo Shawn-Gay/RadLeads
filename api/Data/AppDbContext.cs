@@ -18,6 +18,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<OutboundEmail> OutboundEmails => Set<OutboundEmail>();
     public DbSet<InboxReply> InboxReplies => Set<InboxReply>();
     public DbSet<CallLog> CallLogs => Set<CallLog>();
+    public DbSet<CallSession> CallSessions => Set<CallSession>();
     public DbSet<Script> Scripts => Set<Script>();
     public DbSet<ScriptFeedback> ScriptFeedback => Set<ScriptFeedback>();
     public DbSet<EmailTemplate> EmailTemplates => Set<EmailTemplate>();
@@ -39,6 +40,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     protected override void ConfigureConventions(ModelConfigurationBuilder config)
     {
         config.Properties<EnrichStatus>().HaveConversion<string>();
+        config.Properties<PersonSource>().HaveConversion<string>();
         config.Properties<EmailSource>().HaveConversion<string>();
         config.Properties<EmailStatus>().HaveConversion<string>();
         config.Properties<CampaignStatus>().HaveConversion<string>();
@@ -107,6 +109,20 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasOne(o => o.Dialer)
             .WithMany()
             .HasForeignKey("DialerId")
+            .IsRequired(false);
+
+        // CallLog → CallSession (optional: only set when dialing within a session)
+        model.Entity<CallLog>()
+            .HasOne(o => o.CallSession)
+            .WithMany(o => o.CallLogs)
+            .HasForeignKey("CallSessionId")
+            .IsRequired(false);
+
+        // CallSession → Dialer (who ran the session)
+        model.Entity<CallSession>()
+            .HasOne(o => o.Dialer)
+            .WithMany()
+            .HasForeignKey("CallSessionDialerId")
             .IsRequired(false);
 
         // Dialer → SelectedScript (nullable)

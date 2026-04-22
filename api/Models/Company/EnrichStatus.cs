@@ -9,6 +9,6 @@ public enum EnrichStatus
     Enriched,
     ResearchFailed,
     Unreachable,
-    [Obsolete("Serper removed. Legacy DB values only.")]
+    FindingDecisionMaker,
     SerperFailed,
 }

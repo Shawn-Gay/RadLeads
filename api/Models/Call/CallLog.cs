@@ -15,4 +15,5 @@ public class CallLog : BaseEntity
     public Company? Company { get; set; }
     public Script? Script { get; set; }
     public Dialer? Dialer { get; set; }
+    public CallSession? CallSession { get; set; }
 }

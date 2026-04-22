@@ -11,6 +11,7 @@ public class LeadPerson : BaseEntity
     public string? City { get; set; }
     public string? Icebreaker { get; set; }
     public string? PainPoint { get; set; }
+    public PersonSource Source { get; set; } = PersonSource.ScrapedSite;
 
     public Company Company { get; set; } = null!;
     public List<LeadEmail> Emails { get; set; } = [];

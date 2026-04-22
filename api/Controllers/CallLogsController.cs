@@ -25,7 +25,8 @@ public class CallLogsController(AppDbContext db) : ControllerBase
                 o.Notes,
                 o.CalledAt,
                 EF.Property<Guid?>(o, "ScriptId"),
-                EF.Property<Guid?>(o, "DialerId")))
+                EF.Property<Guid?>(o, "DialerId"),
+                EF.Property<Guid?>(o, "CallSessionId")))
             .ToListAsync();
         return Ok(logs);
     }
@@ -45,7 +46,8 @@ public class CallLogsController(AppDbContext db) : ControllerBase
                 o.Notes,
                 o.CalledAt,
                 EF.Property<Guid?>(o, "ScriptId"),
-                EF.Property<Guid?>(o, "DialerId")))
+                EF.Property<Guid?>(o, "DialerId"),
+                EF.Property<Guid?>(o, "CallSessionId")))
             .ToListAsync();
         return Ok(logs);
     }
@@ -65,7 +67,8 @@ public class CallLogsController(AppDbContext db) : ControllerBase
                 o.Notes,
                 o.CalledAt,
                 EF.Property<Guid?>(o, "ScriptId"),
-                EF.Property<Guid?>(o, "DialerId")))
+                EF.Property<Guid?>(o, "DialerId"),
+                EF.Property<Guid?>(o, "CallSessionId")))
             .ToListAsync();
         return Ok(logs);
     }
@@ -119,6 +122,16 @@ public class CallLogsController(AppDbContext db) : ControllerBase
             log.Dialer = dialer;
         }
 
+        if (input.CallSessionId is not null)
+        {
+            var session = await db.CallSessions.FindAsync(input.CallSessionId.Value);
+            if (session is not null)
+            {
+                log.CallSession = session;
+                session.LeadsCalledCount++;
+            }
+        }
+
         db.CallLogs.Add(log);
 
         if (targetCompany is not null)
@@ -139,5 +152,6 @@ public class CallLogsController(AppDbContext db) : ControllerBase
         o.Notes,
         o.CalledAt,
         o.Script?.Id,
-        o.Dialer?.Id);
+        o.Dialer?.Id,
+        o.CallSession?.Id);
 }

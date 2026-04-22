@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using RadLeads.Api.Data;
@@ -11,9 +12,11 @@ using RadLeads.Api.Data;
 namespace RadLeads.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260422005602_AddCallSession")]
+    partial class AddCallSession
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -379,15 +382,6 @@ namespace RadLeads.Api.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("DecisionMakerFailCount")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("DecisionMakerSearchJson")
-                        .HasColumnType("text");
-
-                    b.Property<DateTimeOffset?>("DecisionMakerSearchedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTimeOffset?>("DeletedAt")
@@ -765,10 +759,6 @@ namespace RadLeads.Api.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("Phone")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Source")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("SourcePage")

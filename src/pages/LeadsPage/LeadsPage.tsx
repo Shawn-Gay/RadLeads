@@ -159,6 +159,7 @@ export function LeadsPage() {
                         }
                         onResearch={() => state.handleResearch(company.id)}
                         onEnrich={() => state.handleEnrich(company.id)}
+                        onFindDecisionMaker={() => state.handleFindDecisionMaker(company.id)}
                         onCallCompany={() => state.openDialer(company.id)}
                         onCall={personId => state.openDialer(company.id, personId)}
                       />

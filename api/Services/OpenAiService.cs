@@ -147,4 +147,65 @@ public class OpenAiService(IConfiguration config, ILogger<OpenAiService> logger)
             return null;
         }
     }
+
+    public async Task<DecisionMakerExtraction?> ExtractDecisionMakerAsync(
+        string companyName, string domain,
+        IReadOnlyList<SerperSearchResponse> searches, CancellationToken ct = default)
+    {
+        var chat = GetChatClient();
+        if (chat is null) return null;
+
+        // Flatten organic results across all staged queries for the prompt
+        var flattened = searches
+            .SelectMany(s => s.Organic.Select(o => new { Query = s.Query, o.Title, o.Link, o.Snippet }))
+            .Take(30)   // cap total items sent to AI
+            .ToList();
+
+        if (flattened.Count == 0) return null;
+
+        var itemsJson = JsonSerializer.Serialize(flattened, JsonOpts);
+
+        var system = new SystemChatMessage("""
+            You identify the single most likely decision-maker (owner, founder, president, or CEO)
+            of a specific company from public web search results. Respond with valid JSON only — no markdown.
+            """);
+
+        var user = new UserChatMessage($$"""
+            Target company: {{companyName}}
+            Domain: {{domain}}
+
+            Public web search results (array of { query, title, link, snippet }):
+            {{itemsJson}}
+
+            Rules:
+            - The person MUST be an actual employee/owner of {{companyName}} at {{domain}} — not a client, journalist, competitor, or namesake.
+            - Prefer LinkedIn results (title pattern "Name - Title - Company | LinkedIn").
+            - Prefer owner-class titles: Owner, Founder, Co-Founder, President, CEO, COO, Principal, Proprietor, Managing Partner.
+            - If LinkedIn URL is available, set linkedinUrl to the full profile URL (must contain "/in/").
+            - Set confidence < 0.5 when the match is ambiguous. Set < 0.2 when the candidate likely isn't from this company.
+            - If no defensible candidate exists, return every field as null (Confidence 0).
+            - Set sourceQuery to the query string of the result you used.
+
+            Return JSON matching this exact schema:
+            {
+              "name": "First Last" | null,
+              "title": "Job Title" | null,
+              "linkedinUrl": "https://..." | null,
+              "sourceQuery": "site:linkedin.com/in ..." | null,
+              "confidence": 0.0
+            }
+            """);
+
+        try
+        {
+            var result = await chat.CompleteChatAsync([system, user], cancellationToken: ct);
+            var json = result.Value.Content[0].Text;
+            return JsonSerializer.Deserialize<DecisionMakerExtraction>(json, JsonOpts);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "AI decision-maker extraction failed for {Company} ({Domain})", companyName, domain);
+            return null;
+        }
+    }
 }

@@ -9,7 +9,7 @@ export function useLeadsPage() {
   const {
     companies, campaigns,
     updateCompany, addFromImport, addFromCompanyImport,
-    queueResearchCompanies, queueEnrichCompanies,
+    queueResearchCompanies, queueEnrichCompanies, queueFindDecisionMakerCompanies,
     enrollPeopleInCampaign,
     currentDialer, dialers,
   } = useAppContext()
@@ -205,6 +205,14 @@ export function useLeadsPage() {
     })
   }
 
+  function handleFindDecisionMaker(companyId: string) {
+    const prev = companies.find(o => o.id === companyId)?.enrichStatus
+    queueFindDecisionMakerCompanies([companyId]).catch(err => {
+      if (prev) updateCompany(companyId, { enrichStatus: prev })
+      console.error('Find decision maker queue failed:', err)
+    })
+  }
+
   function handleResearchSelected() {
     const toResearch = [...checkedIds].filter(id =>
       companies.find(o => o.id === id)?.enrichStatus === 'not_enriched'
@@ -272,7 +280,7 @@ export function useLeadsPage() {
     callLogsByPerson, callLogsByCompany, attemptsByPerson, scoreByCompany,
     startDialer, openDialer,
     toggleExpand, toggleCheck, toggleCheckAll,
-    handleResearch, handleEnrich,
+    handleResearch, handleEnrich, handleFindDecisionMaker,
     handleResearchSelected, handleEnrichSelected, handleAddToCampaign,
     exportCSV, addFromImport, addFromCompanyImport,
   }
