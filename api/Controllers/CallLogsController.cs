@@ -141,6 +141,30 @@ public class CallLogsController(AppDbContext db) : ControllerBase
         return Ok(ToDto(log));
     }
 
+    [HttpPatch("{id:guid}")]
+    public async Task<IActionResult> UpdateNotes(Guid id, [FromBody] UpdateCallLogInput input)
+    {
+        var log = await db.CallLogs.FindAsync(id);
+        if (log is null) return NotFound();
+        log.Notes = input.Notes;
+        await db.SaveChangesAsync();
+        var dto = await db.CallLogs
+            .Where(o => o.Id == id)
+            .Select(o => new CallLogDto(
+                o.Id,
+                EF.Property<Guid?>(o, "PersonId"),
+                EF.Property<Guid?>(o, "CompanyId"),
+                o.CalledPhone,
+                o.Outcome,
+                o.Notes,
+                o.CalledAt,
+                EF.Property<Guid?>(o, "ScriptId"),
+                EF.Property<Guid?>(o, "DialerId"),
+                EF.Property<Guid?>(o, "CallSessionId")))
+            .FirstAsync();
+        return Ok(dto);
+    }
+
     // ── helpers ──────────────────────────────────────────────────────────────
 
     static CallLogDto ToDto(CallLog o) => new(

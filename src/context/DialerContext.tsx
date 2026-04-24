@@ -64,6 +64,7 @@ export interface DialerContextValue {
   dialerNext:      () => void
   dialerNextCold:  () => void
   dialerJumpTo:    (index: number) => void
+  dialerJumpToById: (companyId: string) => void
   dialerExit:      () => void
   handleDropCompany:    (companyId: string, disposition: DialDisposition) => Promise<void>
   handleAssigned:       () => void
@@ -373,6 +374,18 @@ export function DialerContextProvider({ children }: { children: ReactNode }) {
     setDialerPersonId(null)
   }
 
+  function dialerJumpToById(companyId: string) {
+    const idx = dialerQueue.findIndex(o => o.id === companyId)
+    if (idx !== -1) { dialerJumpTo(idx); return }
+    // Scheduled lead not yet in session queue — inject it then wait for queue rebuild
+    const newQueue = sessionQueueIds
+      ? [...sessionQueueIds, companyId]
+      : [...candidateQueue.map(o => o.id), companyId]
+    setSessionQueueIds(newQueue)
+    setPendingDialerCompanyId(companyId)
+    setSessionEnded(false)
+  }
+
   function dialerNextCold() {
     if (dialerIndex === null) return
     for (let i = dialerIndex + 1; i < dialerQueue.length; i++) {
@@ -402,7 +415,7 @@ export function DialerContextProvider({ children }: { children: ReactNode }) {
       dialerPersonId,
       showIdentityModal, setShowIdentityModal,
       showAssignModal, setShowAssignModal,
-      startDialer, openDialer, dialerPrev, dialerNext, dialerNextCold, dialerJumpTo, dialerExit,
+      startDialer, openDialer, dialerPrev, dialerNext, dialerNextCold, dialerJumpTo, dialerJumpToById, dialerExit,
       handleDropCompany, handleAssigned, handleIdentitySelected,
       callSession, sessionStatus, sessionElapsed, sessionCallCount,
       startSession: () => void startCallSession(currentDialer?.id),

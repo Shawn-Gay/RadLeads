@@ -52,3 +52,11 @@ export async function getCallLogsByCompany(companyId: string): Promise<CallLog[]
   const data = await apiFetch<any[]>(`/api/call-logs/company/${companyId}`)
   return data.map(mapCallLog)
 }
+
+export async function updateCallLogNotes(id: string, notes: string | null): Promise<CallLog> {
+  const raw = await apiFetch<any>(`/api/call-logs/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ notes }),
+  })
+  return mapCallLog(raw)
+}

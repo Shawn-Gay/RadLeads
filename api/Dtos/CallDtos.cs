@@ -13,6 +13,8 @@ public record LogCallInput(
     Guid? DialerId              = null,
     Guid? CallSessionId         = null);
 
+public record UpdateCallLogInput(string? Notes);
+
 public record CallLogDto(
     Guid Id,
     Guid? PersonId,

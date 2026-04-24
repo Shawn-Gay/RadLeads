@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import confetti from 'canvas-confetti'
-import { ExternalLink, Sparkles, Calendar, Phone, ChevronRight, ChevronDown, Link2, Search, MapPin, Star, Info, Users, Mail, X, UserPlus } from 'lucide-react'
+import { ExternalLink, Sparkles, Calendar, Phone, ChevronRight, ChevronDown, Link2, List, Search, MapPin, Star, Info, Users, Mail, X, UserPlus } from 'lucide-react'
 import { useNavigate } from '@tanstack/react-router'
 import { PhoneNumber } from '@/components/leads/PhoneNumber'
 import { cn } from '@/lib/utils'
@@ -39,10 +39,18 @@ export function DialerPage() {
 function DialerEmptyState() {
   const { assignedCompanies, dialerExit, setShowAssignModal } = useDialerContext()
   const hasAssigned = assignedCompanies.length > 0
+  const [queueOpen, setQueueOpen] = useState(false)
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-card">
         <span className="text-sm font-semibold text-foreground">Dialer</span>
+        <button
+          onClick={() => setQueueOpen(v => !v)}
+          className="p-1 rounded hover:bg-muted text-muted-foreground md:hidden"
+          title="Toggle queue"
+        >
+          <List className="h-4 w-4" />
+        </button>
         <div className="flex-1" />
         <button
           onClick={dialerExit}
@@ -53,8 +61,14 @@ function DialerEmptyState() {
         </button>
       </div>
       <SessionTimer />
-      <div className="flex-1 flex overflow-hidden">
-        <QueueSidebar />
+      <div className="flex-1 flex overflow-hidden relative">
+        {queueOpen && (
+          <div
+            className="fixed inset-0 z-40 bg-black/40 md:hidden"
+            onClick={() => setQueueOpen(false)}
+          />
+        )}
+        <QueueSidebar open={queueOpen} onClose={() => setQueueOpen(false)} />
         <div className="flex-1 flex items-center justify-center p-8">
           <div className="max-w-md text-center space-y-4">
             <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center">
@@ -90,6 +104,7 @@ function DialerPageContent() {
     setShowIdentityModal, setShowAssignModal,
     callSession, bumpSessionCount,
   } = useDialerContext()
+  const [queueOpen, setQueueOpen] = useState(false)
   const { accounts, scripts, currentScript, selectScriptForCurrentDialer, editScript, emailTemplates, currentDialer, refreshCompany } = useAppContext()
 
   // Guaranteed non-null by parent guard
@@ -282,16 +297,23 @@ function DialerPageContent() {
         currentDialer={currentDialer}
         companyId={company.id}
         onExit={dialerExit}
+        onToggleQueue={() => setQueueOpen(v => !v)}
         onSwitchDialer={() => setShowIdentityModal(true)}
         onAssignMore={() => setShowAssignModal(true)}
         onDrop={handleDropCompany}
       />
       <SessionTimer />
 
-      <div className="flex-1 flex overflow-hidden">
-        <QueueSidebar />
+      <div className="flex-1 flex overflow-hidden relative">
+        {queueOpen && (
+          <div
+            className="fixed inset-0 z-40 bg-black/40 md:hidden"
+            onClick={() => setQueueOpen(false)}
+          />
+        )}
+        <QueueSidebar open={queueOpen} onClose={() => setQueueOpen(false)} />
         <div className="flex-1 overflow-y-auto">
-        <div className="max-w-5xl mx-auto px-6 py-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="max-w-5xl mx-auto px-3 py-4 sm:px-6 sm:py-6 grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
 
           {/* LEFT COLUMN */}
           <div className="space-y-5">
@@ -486,7 +508,7 @@ function DialerPageContent() {
               />
             )}
 
-            <CallHistoryCard callLogs={companyLogs} />
+            <CallHistoryCard callLogs={companyLogs} onRefresh={refreshCallLogs} />
             <EmailHistoryCard emails={followUpEmails} />
 
             {!company.phone && company.people.every(o => !o.phone) && phase === 'ready' && (
