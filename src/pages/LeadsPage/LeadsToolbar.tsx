@@ -1,4 +1,4 @@
-import { Download, Upload, Globe, Sparkles, Users, ChevronDown, Phone } from 'lucide-react'
+import { Download, Upload, Globe, Sparkles, Users, ChevronDown, Phone, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Campaign } from '@/types'
 
@@ -11,6 +11,7 @@ interface LeadsToolbarProps {
   checkedNotStartedCount: number
   checkedResearchedCount: number
   checkedEnrichedCount: number
+  checkedFindOwnerCount: number
   campaigns: Campaign[]
   showCampaignPicker: boolean
   campaignPickerRef: React.RefObject<HTMLDivElement | null>
@@ -18,6 +19,7 @@ interface LeadsToolbarProps {
   onImport: () => void
   onResearchSelected: () => void
   onEnrichSelected: () => void
+  onFindOwnerSelected: () => void
   onAddToCampaign: (campaignId: string) => void
   onToggleCampaignPicker: () => void
   onStartDialer: () => void
@@ -25,9 +27,9 @@ interface LeadsToolbarProps {
 
 export function LeadsToolbar({
   companiesCount, totalPeople, researchedCount, enrichedCount,
-  someChecked, checkedNotStartedCount, checkedResearchedCount, checkedEnrichedCount,
+  someChecked, checkedNotStartedCount, checkedResearchedCount, checkedEnrichedCount, checkedFindOwnerCount,
   campaigns, showCampaignPicker, campaignPickerRef,
-  onExport, onImport, onResearchSelected, onEnrichSelected, onAddToCampaign, onToggleCampaignPicker, onStartDialer,
+  onExport, onImport, onResearchSelected, onEnrichSelected, onFindOwnerSelected, onAddToCampaign, onToggleCampaignPicker, onStartDialer,
 }: LeadsToolbarProps) {
   return (
     <div className="bg-card border-b border-border px-5 py-3 shrink-0 flex items-center gap-3">
@@ -55,6 +57,16 @@ export function LeadsToolbar({
           >
             <Sparkles className="h-3.5 w-3.5" />
             Enrich {checkedResearchedCount}
+          </button>
+        )}
+
+        {someChecked && checkedFindOwnerCount > 0 && (
+          <button
+            onClick={onFindOwnerSelected}
+            className="flex items-center gap-1.5 text-xs text-white bg-amber-600 hover:bg-amber-700 px-2.5 py-1.5 rounded-md transition-colors"
+          >
+            <Search className="h-3.5 w-3.5" />
+            Find Owner {checkedFindOwnerCount}
           </button>
         )}
 

@@ -171,6 +171,16 @@ export function useLeadsPage() {
     [...checkedIds].filter(id => companies.find(o => o.id === id)?.enrichStatus === 'enriched').length,
     [checkedIds, companies])
 
+  const checkedFindOwnerCount = useMemo(() =>
+    [...checkedIds].filter(id => {
+      const c = companies.find(o => o.id === id)
+      if (!c) return false
+      if (c.enrichStatus === 'serper_failed') return true
+      if (c.enrichStatus !== 'enriched') return false
+      return !c.people.some(o => /owner|founder|president|ceo|coo|principal|proprietor/i.test(o.title))
+    }).length,
+    [checkedIds, companies])
+
   function toggleExpand(id: string) {
     setExpandedIds(prev => {
       const next = new Set(prev)
@@ -233,6 +243,20 @@ export function useLeadsPage() {
     setCheckedIds(new Set())
   }
 
+  function handleFindOwnerSelected() {
+    const toFind = [...checkedIds].filter(id => {
+      const c = companies.find(o => o.id === id)
+      if (!c) return false
+      if (c.enrichStatus === 'serper_failed') return true
+      if (c.enrichStatus !== 'enriched') return false
+      return !c.people.some(o => /owner|founder|president|ceo|coo|principal|proprietor/i.test(o.title))
+    })
+    if (toFind.length > 0) {
+      queueFindDecisionMakerCompanies(toFind).catch(err => console.error('Bulk find owner failed:', err))
+    }
+    setCheckedIds(new Set())
+  }
+
   function handleAddToCampaign(campaignId: string) {
     const personIds = [...checkedIds]
       .map(id => companies.find(o => o.id === id))
@@ -271,7 +295,7 @@ export function useLeadsPage() {
     showCampaignPicker, setShowCampaignPicker, campaignPickerRef,
     sortKey, sortDir, toggleSort,
     totalPeople, researchedCount, enrichedCount, tabCounts,
-    checkedNotStartedCount, checkedResearchedCount, checkedEnrichedCount,
+    checkedNotStartedCount, checkedResearchedCount, checkedEnrichedCount, checkedFindOwnerCount,
     allChecked, someChecked,
     currentDialer,
     showIdentityModal, setShowIdentityModal,
@@ -281,7 +305,7 @@ export function useLeadsPage() {
     startDialer, openDialer,
     toggleExpand, toggleCheck, toggleCheckAll,
     handleResearch, handleEnrich, handleFindDecisionMaker,
-    handleResearchSelected, handleEnrichSelected, handleAddToCampaign,
+    handleResearchSelected, handleEnrichSelected, handleFindOwnerSelected, handleAddToCampaign,
     exportCSV, addFromImport, addFromCompanyImport,
   }
 }

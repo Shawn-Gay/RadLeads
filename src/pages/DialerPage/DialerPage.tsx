@@ -450,8 +450,7 @@ function DialerPageContent() {
                   <PhoneNumber phone={company.phone} size="md" iconColor="text-emerald-600" asLink={false} />
                   <button
                     onClick={() => handleCall('company')}
-                    disabled={phase === 'outcome'}
-                    className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold shadow-sm transition-all active:scale-95"
+                    className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold shadow-sm transition-all active:scale-95"
                   >
                     <Phone className="h-3 w-3" /> Call Company
                   </button>

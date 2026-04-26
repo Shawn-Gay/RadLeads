@@ -15,7 +15,7 @@ public partial class FindDecisionMakerJob(
     IAiService ai,
     ILogger<FindDecisionMakerJob> logger) : IJob
 {
-    private const int BatchSize = 5;
+    private const int BatchSize = 10;
     private const int MaxFailures = 3;
     private const double HighConfidence = 0.7;
 

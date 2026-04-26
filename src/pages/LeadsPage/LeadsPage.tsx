@@ -65,6 +65,7 @@ export function LeadsPage() {
         checkedNotStartedCount={state.checkedNotStartedCount}
         checkedResearchedCount={state.checkedResearchedCount}
         checkedEnrichedCount={state.checkedEnrichedCount}
+        checkedFindOwnerCount={state.checkedFindOwnerCount}
         campaigns={state.campaigns}
         showCampaignPicker={state.showCampaignPicker}
         campaignPickerRef={state.campaignPickerRef}
@@ -72,6 +73,7 @@ export function LeadsPage() {
         onImport={() => state.setShowImport(true)}
         onResearchSelected={state.handleResearchSelected}
         onEnrichSelected={state.handleEnrichSelected}
+        onFindOwnerSelected={state.handleFindOwnerSelected}
         onAddToCampaign={state.handleAddToCampaign}
         onToggleCampaignPicker={() => state.setShowCampaignPicker(o => !o)}
         onStartDialer={state.startDialer}
