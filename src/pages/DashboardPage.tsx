@@ -140,7 +140,8 @@ export function DashboardPage() {
               not_enriched: 'text-muted-foreground',
               research_failed: 'text-red-600',
               unreachable: 'text-orange-600',
-              finding_decision_maker: 'text-amber-600',
+              finding_decision_maker:    'text-amber-600',
+              processing_decision_maker: 'text-amber-600',
               serper_failed: 'text-rose-600',
             }[company.enrichStatus]
 
