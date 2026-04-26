@@ -11,13 +11,15 @@ namespace RadLeads.Api.Jobs;
 [DisallowConcurrentExecution]
 public partial class FindDecisionMakerJob(
     AppDbContext db,
+    IDbContextFactory<AppDbContext> dbFactory,
     ISerperSearchService serper,
     IAiService ai,
     ILogger<FindDecisionMakerJob> logger) : IJob
 {
-    private const int BatchSize = 10;
-    private const int MaxFailures = 3;
-    private const double HighConfidence = 0.7;
+    private const int BatchSize          = 10;
+    private const int MaxDegreeParallel  = 3;
+    private const int MaxFailures        = 3;
+    private const double HighConfidence  = 0.7;
 
     [GeneratedRegex(@"^([\p{L}.\s'-]+?)\s+[-–]\s+(.+?)\s+[-–]\s+.+?(?:\||-)?\s*LinkedIn\s*$",
         RegexOptions.IgnoreCase)]
@@ -29,11 +31,11 @@ public partial class FindDecisionMakerJob(
 
     public async Task Execute(IJobExecutionContext context)
     {
-        // Job disabled for now...
-        //return;
-
         var ct = context.CancellationToken;
 
+        // ── Step 1: claim a batch atomically ─────────────────────────────────
+        // Set status to ProcessingDecisionMaker so the next tick skips these
+        // and picks up freshly queued companies instead.
         var companies = await db.Companies
             .Include(o => o.Research)
             .Include(o => o.People)
@@ -45,34 +47,47 @@ public partial class FindDecisionMakerJob(
 
         if (companies.Count == 0) return;
 
-        logger.LogInformation("Searching decision makers for {Count} companies", companies.Count);
+        foreach (var c in companies)
+            c.EnrichStatus = EnrichStatus.ProcessingDecisionMaker;
 
-        foreach (var company in companies)
-        {
-            if (ct.IsCancellationRequested) break;
+        await db.SaveChangesAsync(ct);
 
-            try
-            {
-                await ProcessCompanyAsync(company, ct);
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "FindDecisionMaker failed for {Domain}", company.Domain);
-                RecordFailure(company, ex.Message);
-            }
+        logger.LogInformation("Claimed {Count} companies for decision-maker search", companies.Count);
 
-            try
+        // ── Step 2: process in parallel, each task owns its own DbContext ────
+        await Parallel.ForEachAsync(companies,
+            new ParallelOptions { MaxDegreeOfParallelism = MaxDegreeParallel, CancellationToken = ct },
+            async (company, taskCt) =>
             {
-                await db.SaveChangesAsync(ct);
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Failed to save decision maker search for {Domain}", company.Domain);
-            }
-        }
+                await using var taskDb = await dbFactory.CreateDbContextAsync(taskCt);
+
+                var fresh = await taskDb.Companies
+                    .Include(o => o.Research)
+                    .Include(o => o.People)
+                    .FirstAsync(o => o.Id == company.Id, taskCt);
+
+                try
+                {
+                    await ProcessCompanyAsync(fresh, taskDb, taskCt);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "FindDecisionMaker failed for {Domain}", fresh.Domain);
+                    RecordFailure(fresh, ex.Message);
+                }
+
+                try
+                {
+                    await taskDb.SaveChangesAsync(taskCt);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Failed to save decision-maker result for {Domain}", fresh.Domain);
+                }
+            });
     }
 
-    private async Task ProcessCompanyAsync(Company company, CancellationToken ct)
+    private async Task ProcessCompanyAsync(Company company, AppDbContext taskDb, CancellationToken ct)
     {
         var research = company.Research!;
 
@@ -80,7 +95,7 @@ public partial class FindDecisionMakerJob(
         var knownDm = company.People.FirstOrDefault(o => TitleHelper.IsDecisionMakerTitle(o.Title));
         if (knownDm is not null)
         {
-            PersistSuccess(company, research,
+            PersistSuccess(company, research, taskDb,
                 new DecisionMakerExtraction(
                     Name: $"{knownDm.FirstName} {knownDm.LastName}",
                     Title: knownDm.Title,
@@ -101,23 +116,20 @@ public partial class FindDecisionMakerJob(
             ], ct);
         allSearches.AddRange(stageA);
 
-        // Regex short-circuit: LinkedIn title with owner-class keyword + /in/ link
         var regexHit = TryRegexExtract(stageA);
         if (regexHit is not null)
         {
-            PersistSuccess(company, research, regexHit, allSearches);
+            PersistSuccess(company, research, taskDb, regexHit, allSearches);
             return;
         }
 
-        // AI pass on Stage A
         var extraction = await ai.ExtractDecisionMakerAsync(company.Name, company.Domain, allSearches, ct);
         if (extraction is not null && extraction.Confidence >= HighConfidence)
         {
-            PersistSuccess(company, research, extraction, allSearches);
+            PersistSuccess(company, research, taskDb, extraction, allSearches);
             return;
         }
 
-        // Bail early if Stage A returned literally nothing organic
         var stageAHadAnything = stageA.Any(o => o.Organic.Count > 0);
 
         // ── Stage B: zoominfo + bbb + manta + yelp + alignable + registry ─────
@@ -137,7 +149,7 @@ public partial class FindDecisionMakerJob(
             extraction = await ai.ExtractDecisionMakerAsync(company.Name, company.Domain, allSearches, ct);
             if (extraction is not null && extraction.Confidence >= HighConfidence)
             {
-                PersistSuccess(company, research, extraction, allSearches);
+                PersistSuccess(company, research, taskDb, extraction, allSearches);
                 return;
             }
         }
@@ -152,11 +164,10 @@ public partial class FindDecisionMakerJob(
             && extraction.Confidence >= 0.5
             && !string.IsNullOrWhiteSpace(extraction.Name))
         {
-            PersistSuccess(company, research, extraction, allSearches);
+            PersistSuccess(company, research, taskDb, extraction, allSearches);
             return;
         }
 
-        // Nothing usable across all stages
         research.DecisionMakerSearchJson = JsonSerializer.Serialize(new
         {
             queries = allSearches.Select(o => o.Query).ToArray(),
@@ -184,13 +195,12 @@ public partial class FindDecisionMakerJob(
         {
             foreach (var result in search.Organic)
             {
-                // LinkedIn title: "Name – Title – Company | LinkedIn"
                 if (result.Link.Contains("linkedin.com/in/", StringComparison.OrdinalIgnoreCase))
                 {
                     var match = LinkedInTitleRegex().Match(result.Title);
                     if (match.Success)
                     {
-                        var name = match.Groups[1].Value.Trim();
+                        var name  = match.Groups[1].Value.Trim();
                         var title = match.Groups[2].Value.Trim();
                         if (TitleHelper.IsDecisionMakerTitle(title))
                             return new DecisionMakerExtraction(
@@ -202,13 +212,12 @@ public partial class FindDecisionMakerJob(
                     }
                 }
 
-                // Snippet: "Response from [Name], [Title]" (Yelp, Google reviews)
                 if (!string.IsNullOrWhiteSpace(result.Snippet))
                 {
                     var snippetMatch = OwnerResponseRegex().Match(result.Snippet);
                     if (snippetMatch.Success)
                     {
-                        var name = snippetMatch.Groups[1].Value.Trim();
+                        var name  = snippetMatch.Groups[1].Value.Trim();
                         var title = snippetMatch.Groups[2].Value.Trim();
                         if (TitleHelper.IsDecisionMakerTitle(title))
                             return new DecisionMakerExtraction(
@@ -227,6 +236,7 @@ public partial class FindDecisionMakerJob(
     private void PersistSuccess(
         Company company,
         CompanyResearch research,
+        AppDbContext taskDb,
         DecisionMakerExtraction extraction,
         List<SerperSearchResponse> searches)
     {
@@ -234,9 +244,7 @@ public partial class FindDecisionMakerJob(
         {
             var (first, last) = EmailPatternHelper.SplitName(extraction.Name);
             if (!string.IsNullOrEmpty(first))
-            {
-                UpsertPerson(company, first, last, extraction);
-            }
+                UpsertPerson(company, taskDb, first, last, extraction);
         }
 
         research.DecisionMakerSearchJson = JsonSerializer.Serialize(new
@@ -246,24 +254,22 @@ public partial class FindDecisionMakerJob(
             extraction,
         });
         research.DecisionMakerSearchedAt = DateTimeOffset.UtcNow;
-        research.DecisionMakerFailCount = 0;
-        research.ErrorMessage = null;
-        company.EnrichStatus = EnrichStatus.Enriched;
+        research.DecisionMakerFailCount  = 0;
+        research.ErrorMessage            = null;
+        company.EnrichStatus             = EnrichStatus.Enriched;
 
         logger.LogInformation("Decision maker found for {Domain}: {Name} ({Title}) confidence={Confidence:F2}",
             company.Domain, extraction.Name, extraction.Title, extraction.Confidence);
     }
 
-    private void UpsertPerson(Company company, string first, string last, DecisionMakerExtraction extraction)
+    private void UpsertPerson(Company company, AppDbContext taskDb, string first, string last, DecisionMakerExtraction extraction)
     {
-        var fullNameKey = $"{first} {last}".ToLowerInvariant().Trim();
         var existing = company.People.FirstOrDefault(o =>
-            $"{o.FirstName} {o.LastName}".Equals($"{first} {last}", StringComparison.OrdinalIgnoreCase)
-            || $"{o.FirstName} {o.LastName}".ToLowerInvariant().Trim() == fullNameKey);
+            $"{o.FirstName} {o.LastName}".Equals($"{first} {last}", StringComparison.OrdinalIgnoreCase));
 
         if (existing is not null)
         {
-            if (!string.IsNullOrWhiteSpace(extraction.Title)) existing.Title = extraction.Title;
+            if (!string.IsNullOrWhiteSpace(extraction.Title))     existing.Title      = extraction.Title;
             if (!string.IsNullOrWhiteSpace(extraction.LinkedinUrl)) existing.LinkedinUrl = extraction.LinkedinUrl;
             existing.Source = PersonSource.WebSearch;
             return;
@@ -271,16 +277,16 @@ public partial class FindDecisionMakerJob(
 
         var person = new LeadPerson
         {
-            FirstName = EmailPatternHelper.Capitalize(first),
-            LastName = EmailPatternHelper.Capitalize(last),
-            Title = string.IsNullOrWhiteSpace(extraction.Title) ? "Owner" : extraction.Title,
+            FirstName   = EmailPatternHelper.Capitalize(first),
+            LastName    = EmailPatternHelper.Capitalize(last),
+            Title       = string.IsNullOrWhiteSpace(extraction.Title) ? "Owner" : extraction.Title,
             LinkedinUrl = extraction.LinkedinUrl,
-            SourcePage = $"web-search:{extraction.SourceQuery}",
-            Source = PersonSource.WebSearch,
-            Company = company,
-            Emails = EmailPatternHelper.GuessEmails(first, last, company.Domain),
+            SourcePage  = $"web-search:{extraction.SourceQuery}",
+            Source      = PersonSource.WebSearch,
+            Company     = company,
+            Emails      = EmailPatternHelper.GuessEmails(first, last, company.Domain),
         };
-        db.LeadPersons.Add(person);
+        taskDb.LeadPersons.Add(person);
     }
 
     private void RecordFailure(Company company, string error)
@@ -294,6 +300,10 @@ public partial class FindDecisionMakerJob(
             company.EnrichStatus = EnrichStatus.SerperFailed;
             logger.LogWarning("Marking {Domain} SerperFailed after {Max} attempts", company.Domain, MaxFailures);
         }
-        // else leave status as FindingDecisionMaker so next tick retries
+        else
+        {
+            // reset from ProcessingDecisionMaker so next tick retries
+            company.EnrichStatus = EnrichStatus.FindingDecisionMaker;
+        }
     }
 }

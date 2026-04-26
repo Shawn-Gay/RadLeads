@@ -100,6 +100,8 @@ builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
 
 builder.Services.AddDbContext<AppDbContext>(o =>
     o.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
+builder.Services.AddDbContextFactory<AppDbContext>(o =>
+    o.UseNpgsql(builder.Configuration.GetConnectionString("Default")), ServiceLifetime.Scoped);
 
 builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
     p.WithOrigins(builder.Configuration.GetSection("AllowedOrigins").Get<string[]>() ?? ["http://localhost:5173"])

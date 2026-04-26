@@ -43,6 +43,7 @@ export function CompanyRow({
     company.enrichStatus === 'researching'
     || company.enrichStatus === 'enriching'
     || company.enrichStatus === 'finding_decision_maker'
+    || company.enrichStatus === 'processing_decision_maker'
   const hasDecisionMaker = company.people.some(o =>
     /owner|founder|president|ceo|coo|principal|proprietor/i.test(o.title))
 

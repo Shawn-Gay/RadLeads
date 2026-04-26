@@ -10,5 +10,6 @@ public enum EnrichStatus
     ResearchFailed,
     Unreachable,
     FindingDecisionMaker,
+    ProcessingDecisionMaker,
     SerperFailed,
 }

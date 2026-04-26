@@ -118,7 +118,7 @@ export interface FollowUpEmail {
 }
 
 export type EmailStatus = 'verified' | 'bounced' | 'unknown'
-export type EnrichStatus = 'not_enriched' | 'researching' | 'researched' | 'enriching' | 'enriched' | 'research_failed' | 'unreachable' | 'finding_decision_maker' | 'serper_failed'
+export type EnrichStatus = 'not_enriched' | 'researching' | 'researched' | 'enriching' | 'enriched' | 'research_failed' | 'unreachable' | 'finding_decision_maker' | 'processing_decision_maker' | 'serper_failed'
 export type PersonSource = 'csv' | 'scraped_site' | 'web_search' | 'manual'
 export type CampaignStatus = 'active' | 'draft' | 'paused'
 export type AccountStatus = 'active' | 'warming' | 'paused' | 'inactive'
