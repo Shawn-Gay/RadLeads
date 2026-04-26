@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import confetti from 'canvas-confetti'
-import { ExternalLink, Sparkles, Calendar, Phone, ChevronRight, ChevronDown, Link2, List, Search, MapPin, Star, Info, Users, Mail, X, UserPlus } from 'lucide-react'
+import { ExternalLink, Sparkles, Calendar, Phone, ChevronRight, ChevronDown, Link2, List, Search, MapPin, Star, Info, Users, Mail, X, UserPlus, Globe, RefreshCw, Loader2 } from 'lucide-react'
 import { useNavigate } from '@tanstack/react-router'
 import { PhoneNumber } from '@/components/leads/PhoneNumber'
 import { cn } from '@/lib/utils'
@@ -21,6 +21,7 @@ import { ScriptCard }        from './ScriptCard'
 import { OutcomeSection }    from './OutcomeSection'
 import { ResearchChip }      from './ResearchChip'
 import { SessionTimer }      from './SessionTimer'
+import { EnrichBadge }       from '@/pages/LeadsPage/EnrichBadge'
 
 type Phase = 'ready' | 'outcome'
 
@@ -105,10 +106,26 @@ function DialerPageContent() {
     callSession, bumpSessionCount,
   } = useDialerContext()
   const [queueOpen, setQueueOpen] = useState(false)
-  const { accounts, scripts, currentScript, selectScriptForCurrentDialer, editScript, emailTemplates, currentDialer, refreshCompany } = useAppContext()
+  const { accounts, scripts, currentScript, selectScriptForCurrentDialer, editScript, emailTemplates, currentDialer, refreshCompany, updateCompany, queueResearchCompanies, queueEnrichCompanies, queueFindDecisionMakerCompanies } = useAppContext()
 
   // Guaranteed non-null by parent guard
   const company = dialerCompany!
+
+  const isEnrichInProgress = company.enrichStatus === 'researching' || company.enrichStatus === 'enriching' || company.enrichStatus === 'finding_decision_maker'
+  const hasDecisionMaker = company.people.some(o => /owner|founder|president|ceo|coo|principal|proprietor/i.test(o.title))
+
+  function handleResearch() {
+    queueResearchCompanies([company.id]).catch(() => updateCompany(company.id, { enrichStatus: 'not_enriched' }))
+  }
+
+  function handleEnrich() {
+    queueEnrichCompanies([company.id]).catch(() => updateCompany(company.id, { enrichStatus: 'researched' }))
+  }
+
+  function handleFindDecisionMaker() {
+    const prev = company.enrichStatus
+    queueFindDecisionMakerCompanies([company.id]).catch(() => updateCompany(company.id, { enrichStatus: prev }))
+  }
 
   const initialIdx = company.people.findIndex(o => o.id === dialerPersonId)
 
@@ -330,7 +347,52 @@ function DialerPageContent() {
                 </a>
                 <ExternalLink className="h-3 w-3 shrink-0 text-blue-400 dark:text-blue-500" />
               </div>
-              <p className="text-xs text-muted-foreground mb-3">{company.name}</p>
+              <p className="text-xs text-muted-foreground">{company.name}</p>
+
+              <div className="flex items-center gap-2 mt-1.5 mb-3">
+                <EnrichBadge status={company.enrichStatus} />
+                {isEnrichInProgress ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                ) : company.enrichStatus === 'not_enriched' || company.enrichStatus === 'research_failed' ? (
+                  <button
+                    onClick={handleResearch}
+                    className="flex items-center gap-1 text-[10px] font-medium text-sky-600 hover:text-sky-700 hover:bg-sky-50 dark:hover:bg-sky-950 px-1.5 py-1 rounded transition-colors"
+                  >
+                    <Globe className="h-3 w-3" /> Research
+                  </button>
+                ) : company.enrichStatus === 'researched' ? (
+                  <button
+                    onClick={handleEnrich}
+                    className="flex items-center gap-1 text-[10px] font-medium text-violet-600 hover:text-violet-700 hover:bg-violet-50 dark:hover:bg-violet-950 px-1.5 py-1 rounded transition-colors"
+                  >
+                    <Sparkles className="h-3 w-3" /> Enrich
+                  </button>
+                ) : company.enrichStatus === 'enriched' ? (
+                  !hasDecisionMaker ? (
+                    <button
+                      onClick={handleFindDecisionMaker}
+                      className="flex items-center gap-1 text-[10px] font-medium text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950 px-1.5 py-1 rounded transition-colors"
+                    >
+                      <Search className="h-3 w-3" /> Find Owner
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleResearch}
+                      title="Re-research"
+                      className="p-1 text-muted-foreground hover:text-foreground hover:bg-muted rounded transition-colors"
+                    >
+                      <RefreshCw className="h-3.5 w-3.5" />
+                    </button>
+                  )
+                ) : company.enrichStatus === 'serper_failed' ? (
+                  <button
+                    onClick={handleFindDecisionMaker}
+                    className="flex items-center gap-1 text-[10px] font-medium text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950 px-1.5 py-1 rounded transition-colors"
+                  >
+                    <RefreshCw className="h-3 w-3" /> Retry
+                  </button>
+                ) : null}
+              </div>
 
               <div className="flex flex-wrap gap-1.5 mb-3">
                 <ResearchChip href={`https://www.google.com/search?q=${encodeURIComponent(`${company.name} ${company.domain} reviews`)}`} icon={<Star className="h-3 w-3" />} label="Reviews" title="Google reviews + search" />

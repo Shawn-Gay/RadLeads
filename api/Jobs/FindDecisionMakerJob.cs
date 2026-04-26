@@ -23,10 +23,14 @@ public partial class FindDecisionMakerJob(
         RegexOptions.IgnoreCase)]
     private static partial Regex LinkedInTitleRegex();
 
+    [GeneratedRegex(@"response from\s+([\p{L}.\s'-]+?)(?:,\s*|\s+[-–]\s+)(.+?)(?:\.|:|$)",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex OwnerResponseRegex();
+
     public async Task Execute(IJobExecutionContext context)
     {
         // Job disabled for now...
-        return;
+        //return;
 
         var ct = context.CancellationToken;
 
@@ -71,6 +75,22 @@ public partial class FindDecisionMakerJob(
     private async Task ProcessCompanyAsync(Company company, CancellationToken ct)
     {
         var research = company.Research!;
+
+        // Fast path: website scrape already found a DM-titled person
+        var knownDm = company.People.FirstOrDefault(o => TitleHelper.IsDecisionMakerTitle(o.Title));
+        if (knownDm is not null)
+        {
+            PersistSuccess(company, research,
+                new DecisionMakerExtraction(
+                    Name: $"{knownDm.FirstName} {knownDm.LastName}",
+                    Title: knownDm.Title,
+                    LinkedinUrl: knownDm.LinkedinUrl,
+                    SourceQuery: knownDm.SourcePage,
+                    Confidence: 0.9),
+                []);
+            return;
+        }
+
         var allSearches = new List<SerperSearchResponse>();
 
         // ── Stage A: always run ────────────────────────────────────────────────
@@ -100,13 +120,17 @@ public partial class FindDecisionMakerJob(
         // Bail early if Stage A returned literally nothing organic
         var stageAHadAnything = stageA.Any(o => o.Organic.Count > 0);
 
-        // ── Stage B: zoominfo + bbb ────────────────────────────────────────────
+        // ── Stage B: zoominfo + bbb + manta + yelp + alignable + registry ─────
         if (stageAHadAnything)
         {
             var stageB = await RunQueriesAsync(
                 [
                     $"site:zoominfo.com \"{company.Name}\"",
                     $"site:bbb.org \"{company.Name}\" owner",
+                    $"site:manta.com \"{company.Name}\"",
+                    $"site:yelp.com \"{company.Name}\" owner",
+                    $"site:alignable.com \"{company.Name}\"",
+                    $"\"{company.Name}\" \"registered agent\" OR \"managing member\" OR \"organizer\"",
                 ], ct);
             allSearches.AddRange(stageB);
 
@@ -160,22 +184,41 @@ public partial class FindDecisionMakerJob(
         {
             foreach (var result in search.Organic)
             {
-                if (!result.Link.Contains("linkedin.com/in/", StringComparison.OrdinalIgnoreCase))
-                    continue;
+                // LinkedIn title: "Name – Title – Company | LinkedIn"
+                if (result.Link.Contains("linkedin.com/in/", StringComparison.OrdinalIgnoreCase))
+                {
+                    var match = LinkedInTitleRegex().Match(result.Title);
+                    if (match.Success)
+                    {
+                        var name = match.Groups[1].Value.Trim();
+                        var title = match.Groups[2].Value.Trim();
+                        if (TitleHelper.IsDecisionMakerTitle(title))
+                            return new DecisionMakerExtraction(
+                                Name: name,
+                                Title: title,
+                                LinkedinUrl: result.Link,
+                                SourceQuery: search.Query,
+                                Confidence: 0.8);
+                    }
+                }
 
-                var match = LinkedInTitleRegex().Match(result.Title);
-                if (!match.Success) continue;
-
-                var name = match.Groups[1].Value.Trim();
-                var title = match.Groups[2].Value.Trim();
-                if (!TitleHelper.IsDecisionMakerTitle(title)) continue;
-
-                return new DecisionMakerExtraction(
-                    Name: name,
-                    Title: title,
-                    LinkedinUrl: result.Link,
-                    SourceQuery: search.Query,
-                    Confidence: 0.8);
+                // Snippet: "Response from [Name], [Title]" (Yelp, Google reviews)
+                if (!string.IsNullOrWhiteSpace(result.Snippet))
+                {
+                    var snippetMatch = OwnerResponseRegex().Match(result.Snippet);
+                    if (snippetMatch.Success)
+                    {
+                        var name = snippetMatch.Groups[1].Value.Trim();
+                        var title = snippetMatch.Groups[2].Value.Trim();
+                        if (TitleHelper.IsDecisionMakerTitle(title))
+                            return new DecisionMakerExtraction(
+                                Name: name,
+                                Title: title,
+                                LinkedinUrl: null,
+                                SourceQuery: search.Query,
+                                Confidence: 0.75);
+                    }
+                }
             }
         }
         return null;

@@ -90,7 +90,7 @@ builder.Services.AddQuartz(q =>
         .ForJob("FindDecisionMakerJob")
         .WithIdentity("FindDecisionMakerTrigger")
         .WithSimpleSchedule(s => s
-            .WithIntervalInMinutes(5)
+            .WithIntervalInSeconds(30)
             .RepeatForever()
             .WithMisfireHandlingInstructionNextWithRemainingCount()));
 

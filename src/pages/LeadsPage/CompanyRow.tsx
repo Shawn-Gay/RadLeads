@@ -203,7 +203,12 @@ export function CompanyRow({
 
       {/* Expanded: company details + people */}
       {isExpanded && (() => {
-        const activeIndex = PIPELINE_STAGES.findIndex(o => o.key.includes(company.enrichStatus))
+        const activeIndex = (() => {
+          const idx = PIPELINE_STAGES.findIndex(o => o.key.includes(company.enrichStatus))
+          if (company.enrichStatus === 'enriched' && hasDecisionMaker)
+            return PIPELINE_STAGES.length - 1
+          return idx
+        })()
         const hasDetails = company.summary || company.recentNews || companyCallLogs.length > 0 || company.meetingLink || company.pagesCrawledCount > 0
 
         return (
@@ -216,7 +221,9 @@ export function CompanyRow({
               <div className="flex items-center max-w-sm mb-4">
                 {PIPELINE_STAGES.map((stage, i) => {
                   const isLastStage  = activeIndex === PIPELINE_STAGES.length - 1
-                  const isInProgressHere = ENRICH_CONFIG[company.enrichStatus]?.spin === true
+                  const isInProgressHere =
+                    ENRICH_CONFIG[company.enrichStatus]?.spin === true
+                    || company.enrichStatus === 'serper_failed'
                   const isDone    = i < activeIndex || (isLastStage && i === activeIndex && !isInProgressHere)
                   const isActive  = i === activeIndex && (isInProgressHere || !isLastStage)
                   return (
