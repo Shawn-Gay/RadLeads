@@ -488,7 +488,33 @@ function DialerPageContent() {
                             <p className="text-sm font-semibold text-foreground leading-snug">
                               {person.firstName} {person.lastName}
                             </p>
-                            {person.title && <p className="text-xs text-muted-foreground truncate">{person.title}</p>}
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {person.title && <p className="text-xs text-muted-foreground truncate">{person.title}</p>}
+                              {person.personSource === 'web_search' ? (
+                                person.sourcePage ? (
+                                  <a
+                                    href={person.sourcePage}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-400 hover:underline whitespace-nowrap shrink-0"
+                                    title={`Found via web search: ${person.sourcePage}`}
+                                  >
+                                    <Search className="h-2.5 w-2.5" /> Web
+                                  </a>
+                                ) : (
+                                  <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-400 whitespace-nowrap shrink-0">
+                                    <Search className="h-2.5 w-2.5" /> Web
+                                  </span>
+                                )
+                              ) : person.personSource === 'scraped_site' && person.sourcePage ? (
+                                <span
+                                  className="inline-flex items-center gap-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-teal-50 dark:bg-teal-950 text-teal-700 dark:text-teal-400 whitespace-nowrap shrink-0"
+                                  title={`Found on the "${person.sourcePage}" page of their website`}
+                                >
+                                  <MapPin className="h-2.5 w-2.5" /> {person.sourcePage}
+                                </span>
+                              ) : null}
+                            </div>
                           </div>
                         </div>
 
